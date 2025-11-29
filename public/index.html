@@ -792,6 +792,7 @@
       jokeCooldown = true;
       cooldownSeconds = 3;
       updateCooldownUI();
+      renderTeams(); // Disable buttons during cooldown
 
       cooldownTimer = setInterval(() => {
         cooldownSeconds--;
@@ -799,6 +800,7 @@
           clearInterval(cooldownTimer);
           jokeCooldown = false;
           document.getElementById('cooldown-btn').classList.add('hidden');
+          renderTeams(); // Re-enable buttons after cooldown
         } else {
           updateCooldownUI();
         }
