@@ -679,7 +679,11 @@
 
     socket.on('voting-status', (data) => {
       votingOpen = data.votingOpen;
+      if (data.teams) {
+        teams = data.teams;
+      }
       updateVotingStatus();
+      renderResults(); // Re-render to show winner/loser styles
     });
 
     socket.on('round-name-updated', (data) => {

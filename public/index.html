@@ -23,40 +23,6 @@
       color: #1a1a1a;
     }
 
-    .loading-overlay {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(250,250,250,0.9);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 9999;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.15s;
-    }
-
-    .loading-overlay.visible {
-      opacity: 1;
-      pointer-events: auto;
-    }
-
-    .loading-spinner {
-      width: 32px;
-      height: 32px;
-      border: 3px solid #e0e0e0;
-      border-top-color: #1a1a1a;
-      border-radius: 50%;
-      animation: spin 0.6s linear infinite;
-    }
-
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-
     .header {
       text-align: center;
       margin-bottom: 32px;
@@ -372,10 +338,6 @@
     <div class="round-name" id="round-name"></div>
   </div>
 
-  <div class="loading-overlay" id="loading-overlay">
-    <div class="loading-spinner"></div>
-  </div>
-
   <div class="voting-container" id="voting-container">
     <!-- Teams will be rendered here -->
   </div>
@@ -499,25 +461,7 @@
 
     init();
 
-    const loadingOverlay = document.getElementById('loading-overlay');
-    let syncTimeout = null;
-
-    function showLoading() {
-      loadingOverlay.classList.add('visible');
-    }
-
-    function hideLoading() {
-      loadingOverlay.classList.remove('visible');
-      if (syncTimeout) {
-        clearTimeout(syncTimeout);
-        syncTimeout = null;
-      }
-    }
-
     function requestSync() {
-      // Show loading after 150ms if no response
-      syncTimeout = setTimeout(showLoading, 150);
-
       if (!socket.connected) {
         socket.connect();
       }
@@ -687,7 +631,6 @@
     }
 
     socket.on('state', (data) => {
-      hideLoading();
       document.getElementById('round').textContent = data.round;
       document.getElementById('round-name').textContent = data.roundName || '';
       teams = data.teams;
