@@ -23,6 +23,40 @@
       color: #1a1a1a;
     }
 
+    .loading-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(250,250,250,0.9);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.15s;
+    }
+
+    .loading-overlay.visible {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .loading-spinner {
+      width: 32px;
+      height: 32px;
+      border: 3px solid #e0e0e0;
+      border-top-color: #1a1a1a;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
     .header {
       text-align: center;
       margin-bottom: 32px;
@@ -286,6 +320,10 @@
     <div class="round-name" id="round-name"></div>
   </div>
 
+  <div class="loading-overlay" id="loading-overlay">
+    <div class="loading-spinner"></div>
+  </div>
+
   <div class="voting-container" id="voting-container">
     <!-- Teams will be rendered here -->
   </div>
@@ -298,8 +336,6 @@
 
   <div class="total-voters" id="total-voters"></div>
 
-  <!-- FingerprintJS for device identification -->
-  <script src="https://cdn.jsdelivr.net/npm/@aspect-security/fingerprint-js@3.4.2/dist/fingerprint.min.js"></script>
   <script src="/socket.io/socket.io.js"></script>
   <script>
     const socket = io();
@@ -317,8 +353,8 @@
     let visitorKey = null;
     let currentVoteSession = null;
 
-    // Generate device fingerprint
-    async function getFingerprint() {
+    // Generate device fingerprint (sync where possible)
+    function getFingerprint() {
       try {
         // Try localStorage first (persists across sessions)
         const stored = localStorage.getItem('voter_fingerprint');
@@ -326,7 +362,7 @@
           const data = JSON.parse(stored);
           visitorId = data.visitorId;
           visitorKey = data.visitorKey;
-          return;
+          return Promise.resolve();
         }
       } catch (e) {}
 
@@ -339,80 +375,110 @@
         new Date().getTimezoneOffset(),
         navigator.hardwareConcurrency || 'unknown',
         navigator.platform,
-        // Canvas fingerprint
-        await getCanvasFingerprint()
+        getCanvasFingerprint()
       ];
 
       // Create hash
       const fingerprint = components.join('|');
-      visitorId = await hashString(fingerprint);
-      visitorKey = await hashString(fingerprint + Date.now() + Math.random());
-
-      // Store in localStorage
-      try {
-        localStorage.setItem('voter_fingerprint', JSON.stringify({ visitorId, visitorKey }));
-      } catch (e) {}
-    }
-
-    function getCanvasFingerprint() {
-      return new Promise(resolve => {
+      return hashString(fingerprint).then(hash => {
+        visitorId = hash;
+        visitorKey = hash + '-' + Date.now();
+        // Store in localStorage
         try {
-          const canvas = document.createElement('canvas');
-          const ctx = canvas.getContext('2d');
-          canvas.width = 200;
-          canvas.height = 50;
-
-          ctx.textBaseline = 'top';
-          ctx.font = '14px Arial';
-          ctx.fillStyle = '#f60';
-          ctx.fillRect(125, 1, 62, 20);
-          ctx.fillStyle = '#069';
-          ctx.fillText('Fingerprint', 2, 15);
-          ctx.fillStyle = 'rgba(102, 204, 0, 0.7)';
-          ctx.fillText('Fingerprint', 4, 17);
-
-          resolve(canvas.toDataURL());
-        } catch (e) {
-          resolve('canvas-not-supported');
-        }
+          localStorage.setItem('voter_fingerprint', JSON.stringify({ visitorId, visitorKey }));
+        } catch (e) {}
       });
     }
 
-    async function hashString(str) {
-      const encoder = new TextEncoder();
-      const data = encoder.encode(str);
-      const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-      const hashArray = Array.from(new Uint8Array(hashBuffer));
-      return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    function getCanvasFingerprint() {
+      try {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = 200;
+        canvas.height = 50;
+        ctx.textBaseline = 'top';
+        ctx.font = '14px Arial';
+        ctx.fillStyle = '#f60';
+        ctx.fillRect(125, 1, 62, 20);
+        ctx.fillStyle = '#069';
+        ctx.fillText('Fp', 2, 15);
+        return canvas.toDataURL().slice(-50);
+      } catch (e) {
+        return 'no-canvas';
+      }
+    }
+
+    function hashString(str) {
+      // Simple fast hash for fingerprint
+      let hash = 0;
+      for (let i = 0; i < str.length; i++) {
+        const char = str.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash;
+      }
+      return Promise.resolve(Math.abs(hash).toString(36) + str.length.toString(36));
     }
 
     // Initialize
-    async function init() {
-      await getFingerprint();
-
-      // Check if voted in localStorage
-      const localVote = localStorage.getItem('current_vote');
-      if (localVote) {
-        try {
-          const voteData = JSON.parse(localVote);
-          if (voteData.visitorId === visitorId) {
-            votedFor = voteData.teamId;
-          }
-        } catch (e) {}
-      }
-
-      // Register with server
-      socket.emit('register-fingerprint', { visitorId, visitorKey });
+    function init() {
+      getFingerprint().then(() => {
+        // Check if voted in localStorage
+        const localVote = localStorage.getItem('current_vote');
+        if (localVote) {
+          try {
+            const voteData = JSON.parse(localVote);
+            if (voteData.visitorId === visitorId) {
+              votedFor = voteData.teamId;
+            }
+          } catch (e) {}
+        }
+        // Register with server
+        socket.emit('register-fingerprint', { visitorId, visitorKey });
+      });
     }
 
     init();
 
-    // Re-sync state when user returns to page (after switching tabs/apps)
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible' && visitorId) {
+    const loadingOverlay = document.getElementById('loading-overlay');
+    let syncTimeout = null;
+
+    function showLoading() {
+      loadingOverlay.classList.add('visible');
+    }
+
+    function hideLoading() {
+      loadingOverlay.classList.remove('visible');
+      if (syncTimeout) {
+        clearTimeout(syncTimeout);
+        syncTimeout = null;
+      }
+    }
+
+    function requestSync() {
+      // Show loading after 150ms if no response
+      syncTimeout = setTimeout(showLoading, 150);
+
+      if (!socket.connected) {
+        socket.connect();
+      }
+      socket.emit('get-state');
+      if (visitorId) {
         socket.emit('register-fingerprint', { visitorId, visitorKey });
       }
+    }
+
+    // Re-sync state when user returns to page (after switching tabs/apps)
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        requestSync();
+      }
     });
+
+    // Also handle page focus (backup for visibilitychange)
+    window.addEventListener('focus', requestSync);
+
+    // Handle socket reconnection
+    socket.on('reconnect', requestSync);
 
     function renderTeams() {
       const container = document.getElementById('voting-container');
@@ -553,6 +619,7 @@
     }
 
     socket.on('state', (data) => {
+      hideLoading();
       document.getElementById('round').textContent = data.round;
       document.getElementById('round-name').textContent = data.roundName || '';
       teams = data.teams;
