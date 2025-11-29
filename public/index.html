@@ -40,7 +40,7 @@
     }
 
     .cta.closed {
-      color: #999;
+      color: #43a047;
     }
 
     .round-info {
@@ -112,6 +112,22 @@
       font-size: 3rem;
       font-weight: 700;
       line-height: 1;
+      display: none;
+    }
+
+    .vote-count.visible {
+      display: block;
+    }
+
+    .winner-badge {
+      font-size: 0.85rem;
+      background: #43a047;
+      color: #fff;
+      padding: 6px 12px;
+      border-radius: 20px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-weight: 600;
     }
 
     .team-name {
@@ -171,6 +187,16 @@
       margin-top: 24px;
       color: #999;
       font-size: 0.85rem;
+      display: none;
+    }
+
+    .total-voters.visible {
+      display: block;
+    }
+
+    .team-btn.winner {
+      color: #fff;
+      transform: scale(1.05);
     }
 
     @media (max-width: 480px) {
@@ -312,20 +338,29 @@
     function renderTeams() {
       const container = document.getElementById('voting-container');
       const isSelected = (id) => votedFor === id || selectedTeam === id;
+      const showResults = !votingOpen; // Only show results when voting is closed
 
-      container.innerHTML = teams.map(team => `
-        <button
-          class="team-btn ${isSelected(team.id) ? 'selected' : ''}"
-          style="border-color: ${team.color}; ${isSelected(team.id) ? `background: ${team.color}` : ''}"
-          data-id="${team.id}"
-          data-color="${team.color}"
-          ${votedFor !== null || !votingOpen ? 'disabled' : ''}
-          onclick="selectTeam(${team.id})"
-        >
-          <span class="team-name">${team.name}</span>
-          <span class="vote-count">${team.votes}</span>
-        </button>
-      `).join('');
+      // Find winner(s) when showing results
+      const maxVotes = showResults ? Math.max(...teams.map(t => t.votes)) : 0;
+      const hasVotes = maxVotes > 0;
+
+      container.innerHTML = teams.map(team => {
+        const isWinner = showResults && hasVotes && team.votes === maxVotes;
+        return `
+          <button
+            class="team-btn ${isSelected(team.id) ? 'selected' : ''} ${isWinner ? 'winner' : ''}"
+            style="border-color: ${team.color}; ${isSelected(team.id) || isWinner ? `background: ${team.color}` : ''}"
+            data-id="${team.id}"
+            data-color="${team.color}"
+            ${votedFor !== null || !votingOpen ? 'disabled' : ''}
+            onclick="selectTeam(${team.id})"
+          >
+            <span class="team-name">${team.name}</span>
+            <span class="vote-count ${showResults ? 'visible' : ''}">${team.votes}</span>
+            ${isWinner ? '<span class="winner-badge">Победитель</span>' : ''}
+          </button>
+        `;
+      }).join('');
 
       // Add hover effects
       container.querySelectorAll('.team-btn:not(:disabled)').forEach(btn => {
@@ -381,16 +416,30 @@
 
     function updateStatus() {
       const cta = document.getElementById('cta');
+      const totalVotersEl = document.getElementById('total-voters');
       cta.classList.remove('voted', 'closed');
 
       if (!votingOpen) {
         cta.classList.add('closed');
-        cta.textContent = 'Голосование закрыто';
+        // Find winner
+        const maxVotes = Math.max(...teams.map(t => t.votes));
+        const winners = teams.filter(t => t.votes === maxVotes && maxVotes > 0);
+        if (winners.length === 1) {
+          cta.textContent = `Победитель: ${winners[0].name}!`;
+        } else if (winners.length > 1) {
+          cta.textContent = 'Ничья!';
+        } else {
+          cta.textContent = 'Голосование закрыто';
+        }
+        // Show results when voting is closed
+        totalVotersEl.classList.add('visible');
       } else if (votedFor !== null) {
         cta.classList.add('voted');
         cta.textContent = 'Спасибо за голос!';
+        totalVotersEl.classList.remove('visible');
       } else {
         cta.textContent = 'Голосуй за лучшую команду!';
+        totalVotersEl.classList.remove('visible');
       }
     }
 
@@ -415,6 +464,7 @@
 
     socket.on('results', (data) => {
       teams = data.teams;
+      // Only update total-voters text, visibility controlled by updateResultsVisibility
       document.getElementById('total-voters').textContent = `${data.totalVoters} голосов`;
       renderTeams();
     });
@@ -461,6 +511,13 @@
 
     socket.on('voting-status', (data) => {
       votingOpen = data.votingOpen;
+      // When voting closes, server sends results
+      if (data.teams) {
+        teams = data.teams;
+      }
+      if (data.totalVoters !== undefined) {
+        document.getElementById('total-voters').textContent = `${data.totalVoters} голосов`;
+      }
       renderTeams();
       updateStatus();
     });

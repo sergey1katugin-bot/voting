@@ -166,7 +166,12 @@ io.on('connection', (socket) => {
   socket.on('admin-toggle-voting', () => {
     if (socket.rooms.has('admins')) {
       gameState.votingOpen = !gameState.votingOpen;
-      io.emit('voting-status', { votingOpen: gameState.votingOpen });
+      // When closing voting, send results to all clients
+      io.emit('voting-status', {
+        votingOpen: gameState.votingOpen,
+        teams: gameState.teams,
+        totalVoters: gameState.votersByFingerprint.size || gameState.votersBySocket.size
+      });
     }
   });
 
