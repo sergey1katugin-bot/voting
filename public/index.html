@@ -23,6 +23,38 @@
       color: #1a1a1a;
     }
 
+    .loading-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: #fafafa;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      transition: opacity 0.2s;
+    }
+
+    .loading-overlay.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .loading-spinner {
+      width: 32px;
+      height: 32px;
+      border: 3px solid #e0e0e0;
+      border-top-color: #1a1a1a;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
     .header {
       text-align: center;
       margin-bottom: 32px;
@@ -338,6 +370,10 @@
     <div class="round-name" id="round-name"></div>
   </div>
 
+  <div class="loading-overlay" id="loading-overlay">
+    <div class="loading-spinner"></div>
+  </div>
+
   <div class="voting-container" id="voting-container">
     <!-- Teams will be rendered here -->
   </div>
@@ -461,8 +497,24 @@
 
     init();
 
+    // Loading overlay for initial load and reconnects
+    const loadingOverlay = document.getElementById('loading-overlay');
+    let awaitingState = true;
+
+    function showLoader() {
+      awaitingState = true;
+      loadingOverlay.classList.remove('hidden');
+    }
+
+    function hideLoader() {
+      awaitingState = false;
+      loadingOverlay.classList.add('hidden');
+    }
+
     function requestSync() {
+      // Show loader when reconnecting after sleep
       if (!socket.connected) {
+        showLoader();
         socket.connect();
       }
       socket.emit('get-state');
@@ -631,6 +683,7 @@
     }
 
     socket.on('state', (data) => {
+      hideLoader();
       document.getElementById('round').textContent = data.round;
       document.getElementById('round-name').textContent = data.roundName || '';
       teams = data.teams;
