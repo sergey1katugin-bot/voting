@@ -64,6 +64,18 @@ io.on('connection', (socket) => {
   // Store fingerprint for this socket
   let socketFingerprint = null;
 
+  // Quick state request (before fingerprint is ready)
+  socket.on('get-state', () => {
+    socket.emit('state', {
+      round: gameState.round,
+      roundName: gameState.roundName,
+      voteSession: gameState.voteSession,
+      teams: gameState.teams,
+      votingOpen: gameState.votingOpen,
+      votedFor: socketFingerprint ? (gameState.votersByFingerprint.get(socketFingerprint)?.teamId ?? null) : null
+    });
+  });
+
   // Register fingerprint
   socket.on('register-fingerprint', (data) => {
     socketFingerprint = data.visitorId;

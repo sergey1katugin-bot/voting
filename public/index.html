@@ -304,6 +304,11 @@
   <script>
     const socket = io();
 
+    // Request state immediately on connect
+    socket.on('connect', () => {
+      socket.emit('get-state');
+    });
+
     let teams = [];
     let votedFor = null;        // Confirmed vote
     let selectedTeam = null;    // Pre-selected (not confirmed yet)
