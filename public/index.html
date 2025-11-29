@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Голосование</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #fafafa;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      color: #1a1a1a;
+    }
+
+    .round-info {
+      font-size: 1.2rem;
+      margin-bottom: 12px;
+      color: #666;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      font-weight: 500;
+    }
+
+    .round-name {
+      font-size: 1.5rem;
+      margin-bottom: 40px;
+      color: #1a1a1a;
+      font-weight: 600;
+      text-align: center;
+    }
+
+    .round-name:empty {
+      display: none;
+    }
+
+    .voting-container {
+      display: flex;
+      gap: 24px;
+      width: 100%;
+      max-width: 600px;
+    }
+
+    .team-btn {
+      flex: 1;
+      padding: 50px 20px;
+      border: 3px solid #1a1a1a;
+      border-radius: 16px;
+      font-size: 1.5rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      background: #fff;
+      color: #1a1a1a;
+    }
+
+    .team-btn.left {
+      border-color: #e53935;
+    }
+
+    .team-btn.right {
+      border-color: #1e88e5;
+    }
+
+    .team-btn.left:hover:not(:disabled) {
+      background: #e53935;
+      color: #fff;
+    }
+
+    .team-btn.right:hover:not(:disabled) {
+      background: #1e88e5;
+      color: #fff;
+    }
+
+    .team-btn:active:not(:disabled) {
+      transform: scale(0.98);
+    }
+
+    .team-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .team-btn.left.selected {
+      background: #e53935;
+      color: #fff;
+    }
+
+    .team-btn.right.selected {
+      background: #1e88e5;
+      color: #fff;
+    }
+
+    .vote-count {
+      font-size: 3.5rem;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .team-name {
+      font-size: 1rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .status {
+      margin-top: 40px;
+      padding: 12px 24px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      text-align: center;
+      font-size: 0.9rem;
+      color: #666;
+    }
+
+    .status.voted {
+      background: #f5f5f5;
+      border-color: #1a1a1a;
+      color: #1a1a1a;
+    }
+
+    .status.closed {
+      background: #f5f5f5;
+      border-color: #999;
+      color: #666;
+    }
+
+    .total-voters {
+      margin-top: 16px;
+      color: #999;
+      font-size: 0.85rem;
+    }
+
+    @media (max-width: 480px) {
+      .voting-container {
+        flex-direction: column;
+        gap: 16px;
+      }
+
+      .team-btn {
+        padding: 40px 20px;
+      }
+
+      .vote-count {
+        font-size: 3rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="round-info">Раунд <span id="round">1</span></div>
+  <div class="round-name" id="round-name"></div>
+
+  <div class="voting-container">
+    <button class="team-btn left" id="btn-left" onclick="vote('left')">
+      <span class="team-name" id="name-left">Команда 1</span>
+      <span class="vote-count" id="votes-left">0</span>
+    </button>
+
+    <button class="team-btn right" id="btn-right" onclick="vote('right')">
+      <span class="team-name" id="name-right">Команда 2</span>
+      <span class="vote-count" id="votes-right">0</span>
+    </button>
+  </div>
+
+  <div class="status" id="status">
+    Выберите команду
+  </div>
+
+  <div class="total-voters" id="total-voters"></div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+
+    let hasVoted = false;
+    let votingOpen = true;
+    let votedFor = null;
+
+    socket.on('state', (data) => {
+      document.getElementById('round').textContent = data.round;
+      document.getElementById('round-name').textContent = data.roundName || '';
+      document.getElementById('name-left').textContent = data.teamLeft.name;
+      document.getElementById('name-right').textContent = data.teamRight.name;
+      document.getElementById('votes-left').textContent = data.teamLeft.votes;
+      document.getElementById('votes-right').textContent = data.teamRight.votes;
+      votingOpen = data.votingOpen;
+      hasVoted = data.hasVoted;
+      updateUI();
+    });
+
+    socket.on('results', (data) => {
+      document.getElementById('votes-left').textContent = data.teamLeft.votes;
+      document.getElementById('votes-right').textContent = data.teamRight.votes;
+      document.getElementById('total-voters').textContent = `${data.totalVoters} голосов`;
+    });
+
+    socket.on('voted', (team) => {
+      hasVoted = true;
+      votedFor = team;
+      updateUI();
+    });
+
+    socket.on('reset', (data) => {
+      document.getElementById('round').textContent = data.round;
+      document.getElementById('round-name').textContent = data.roundName || '';
+      document.getElementById('votes-left').textContent = data.teamLeft.votes;
+      document.getElementById('votes-right').textContent = data.teamRight.votes;
+      hasVoted = false;
+      votedFor = null;
+      votingOpen = data.votingOpen;
+      document.getElementById('total-voters').textContent = '';
+      updateUI();
+    });
+
+    socket.on('new-round', (data) => {
+      document.getElementById('round').textContent = data.round;
+      document.getElementById('round-name').textContent = data.roundName || '';
+      document.getElementById('votes-left').textContent = data.teamLeft.votes;
+      document.getElementById('votes-right').textContent = data.teamRight.votes;
+      hasVoted = false;
+      votedFor = null;
+      votingOpen = data.votingOpen;
+      document.getElementById('total-voters').textContent = '';
+      updateUI();
+    });
+
+    socket.on('voting-status', (data) => {
+      votingOpen = data.votingOpen;
+      updateUI();
+    });
+
+    socket.on('names-updated', (data) => {
+      document.getElementById('name-left').textContent = data.teamLeft.name;
+      document.getElementById('name-right').textContent = data.teamRight.name;
+      document.getElementById('round-name').textContent = data.roundName || '';
+    });
+
+    socket.on('error', (msg) => {
+      alert(msg);
+    });
+
+    function vote(team) {
+      if (hasVoted || !votingOpen) return;
+      socket.emit('vote', team);
+    }
+
+    function updateUI() {
+      const btnLeft = document.getElementById('btn-left');
+      const btnRight = document.getElementById('btn-right');
+      const status = document.getElementById('status');
+
+      btnLeft.disabled = hasVoted || !votingOpen;
+      btnRight.disabled = hasVoted || !votingOpen;
+
+      btnLeft.classList.remove('selected');
+      btnRight.classList.remove('selected');
+      status.classList.remove('voted', 'closed');
+
+      if (!votingOpen) {
+        status.classList.add('closed');
+        status.textContent = 'Голосование закрыто';
+      } else if (hasVoted) {
+        status.classList.add('voted');
+        status.textContent = 'Голос принят';
+        if (votedFor === 'left') {
+          btnLeft.classList.add('selected');
+        } else {
+          btnRight.classList.add('selected');
+        }
+      } else {
+        status.textContent = 'Выберите команду';
+      }
+    }
+  </script>
+</body>
+</html>

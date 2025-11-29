@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Админ-панель</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #fafafa;
+      min-height: 100vh;
+      padding: 20px;
+      color: #1a1a1a;
+    }
+
+    .container {
+      max-width: 700px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 30px;
+      font-weight: 600;
+      font-size: 1.5rem;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
+
+    /* Login form */
+    .login-form {
+      max-width: 320px;
+      margin: 100px auto;
+      padding: 40px;
+      background: #fff;
+      border: 1px solid #e0e0e0;
+      border-radius: 12px;
+    }
+
+    .login-form h2 {
+      text-align: center;
+      margin-bottom: 24px;
+      font-weight: 500;
+      font-size: 1.1rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .login-form input {
+      width: 100%;
+      padding: 14px 16px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      font-size: 1rem;
+      background: #fafafa;
+    }
+
+    .login-form input:focus {
+      outline: none;
+      border-color: #1a1a1a;
+      background: #fff;
+    }
+
+    .login-form button {
+      width: 100%;
+      padding: 14px;
+      border: 2px solid #1a1a1a;
+      border-radius: 8px;
+      background: #1a1a1a;
+      color: white;
+      font-size: 1rem;
+      cursor: pointer;
+      font-weight: 500;
+      transition: all 0.2s;
+    }
+
+    .login-form button:hover {
+      background: #fff;
+      color: #1a1a1a;
+    }
+
+    /* Admin panel */
+    .admin-panel {
+      display: none;
+    }
+
+    .admin-panel.active {
+      display: block;
+    }
+
+    .round-info {
+      text-align: center;
+      font-size: 1.1rem;
+      margin-bottom: 24px;
+      padding: 16px;
+      background: #fff;
+      border: 1px solid #e0e0e0;
+      border-radius: 12px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: #666;
+    }
+
+    .round-info span {
+      color: #1a1a1a;
+      font-weight: 600;
+    }
+
+    .results {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .team-result {
+      flex: 1;
+      padding: 32px 24px;
+      border-radius: 12px;
+      text-align: center;
+      background: #fff;
+      border: 3px solid #1a1a1a;
+    }
+
+    .team-result.left {
+      border-color: #e53935;
+    }
+
+    .team-result.right {
+      border-color: #1e88e5;
+    }
+
+    .team-result .name {
+      font-size: 0.9rem;
+      margin-bottom: 12px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #666;
+    }
+
+    .team-result .votes {
+      font-size: 4rem;
+      font-weight: 700;
+      line-height: 1;
+      margin-bottom: 8px;
+    }
+
+    .team-result .percent {
+      font-size: 1.2rem;
+      color: #999;
+    }
+
+    .total-voters {
+      text-align: center;
+      font-size: 0.9rem;
+      margin-bottom: 24px;
+      color: #999;
+    }
+
+    .voting-status {
+      text-align: center;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      margin-bottom: 24px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .voting-status.open {
+      background: #fff;
+      border: 1px solid #1a1a1a;
+      color: #1a1a1a;
+    }
+
+    .voting-status.closed {
+      background: #f5f5f5;
+      border: 1px solid #ccc;
+      color: #666;
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+
+    .controls button {
+      padding: 16px;
+      border: 2px solid #1a1a1a;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: #fff;
+      color: #1a1a1a;
+      font-weight: 500;
+    }
+
+    .controls button:hover {
+      background: #1a1a1a;
+      color: #fff;
+    }
+
+    .controls button.primary {
+      background: #1a1a1a;
+      color: #fff;
+    }
+
+    .controls button.primary:hover {
+      background: #333;
+    }
+
+    .settings {
+      background: #fff;
+      padding: 24px;
+      border-radius: 12px;
+      border: 1px solid #e0e0e0;
+    }
+
+    .settings h3 {
+      margin-bottom: 16px;
+      font-weight: 500;
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #666;
+    }
+
+    .settings .inputs {
+      display: flex;
+      gap: 12px;
+    }
+
+    .setting-row {
+      margin-bottom: 16px;
+    }
+
+    .setting-row label {
+      display: block;
+      font-size: 0.85rem;
+      color: #999;
+      margin-bottom: 8px;
+    }
+
+    .settings input {
+      flex: 1;
+      padding: 12px 14px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      background: #fafafa;
+    }
+
+    .settings input:focus {
+      outline: none;
+      border-color: #1a1a1a;
+      background: #fff;
+    }
+
+    .settings button {
+      padding: 12px 24px;
+      border: 2px solid #1a1a1a;
+      border-radius: 8px;
+      background: #fff;
+      color: #1a1a1a;
+      font-size: 0.9rem;
+      cursor: pointer;
+      font-weight: 500;
+      transition: all 0.2s;
+    }
+
+    .settings button:hover {
+      background: #1a1a1a;
+      color: #fff;
+    }
+
+    #login-error {
+      color: #c00;
+      margin-top: 12px;
+      text-align: center;
+      font-size: 0.9rem;
+    }
+
+    @media (max-width: 600px) {
+      .results {
+        flex-direction: column;
+      }
+
+      .controls {
+        grid-template-columns: 1fr;
+      }
+
+      .settings .inputs {
+        flex-direction: column;
+      }
+
+      .team-result .votes {
+        font-size: 3rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Login -->
+    <div class="login-form" id="login-form">
+      <h2>Админ-панель</h2>
+      <input type="password" id="password" placeholder="Пароль" onkeypress="if(event.key==='Enter')login()">
+      <button onclick="login()">Войти</button>
+      <p id="login-error"></p>
+    </div>
+
+    <!-- Admin Panel -->
+    <div class="admin-panel" id="admin-panel">
+      <h1>Управление</h1>
+
+      <div class="round-info">
+        Раунд <span id="round">1</span>
+      </div>
+
+      <div class="voting-status open" id="voting-status">
+        Голосование открыто
+      </div>
+
+      <div class="results">
+        <div class="team-result left">
+          <div class="name" id="name-left">Команда 1</div>
+          <div class="votes" id="votes-left">0</div>
+          <div class="percent" id="percent-left">0%</div>
+        </div>
+        <div class="team-result right">
+          <div class="name" id="name-right">Команда 2</div>
+          <div class="votes" id="votes-right">0</div>
+          <div class="percent" id="percent-right">0%</div>
+        </div>
+      </div>
+
+      <div class="total-voters">
+        Всего голосов: <span id="total-voters">0</span>
+      </div>
+
+      <div class="controls">
+        <button id="btn-toggle" onclick="toggleVoting()">
+          Закрыть голосование
+        </button>
+        <button onclick="resetVotes()">
+          Сбросить голоса
+        </button>
+        <button class="primary" onclick="nextRound()" style="grid-column: span 2;">
+          Следующий раунд
+        </button>
+      </div>
+
+      <div class="settings">
+        <h3>Настройки</h3>
+        <div class="setting-row">
+          <label>Название раунда</label>
+          <input type="text" id="input-round-name" placeholder="Например: Финал">
+        </div>
+        <div class="setting-row">
+          <label>Команды</label>
+          <div class="inputs">
+            <input type="text" id="input-left" placeholder="Левая команда">
+            <input type="text" id="input-right" placeholder="Правая команда">
+          </div>
+        </div>
+        <button onclick="setNames()">Применить</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    let votingOpen = true;
+
+    socket.on('admin-auth', (success) => {
+      if (success) {
+        document.getElementById('login-form').style.display = 'none';
+        document.getElementById('admin-panel').classList.add('active');
+      } else {
+        document.getElementById('login-error').textContent = 'Неверный пароль';
+      }
+    });
+
+    socket.on('admin-state', (data) => {
+      updateDisplay(data);
+    });
+
+    socket.on('results', (data) => {
+      updateDisplay(data);
+    });
+
+    socket.on('reset', (data) => {
+      updateDisplay(data);
+    });
+
+    socket.on('new-round', (data) => {
+      updateDisplay(data);
+    });
+
+    socket.on('voting-status', (data) => {
+      votingOpen = data.votingOpen;
+      updateVotingStatus();
+    });
+
+    socket.on('names-updated', (data) => {
+      document.getElementById('name-left').textContent = data.teamLeft.name;
+      document.getElementById('name-right').textContent = data.teamRight.name;
+      document.getElementById('input-left').value = data.teamLeft.name;
+      document.getElementById('input-right').value = data.teamRight.name;
+      document.getElementById('input-round-name').value = data.roundName || '';
+    });
+
+    function login() {
+      const password = document.getElementById('password').value;
+      socket.emit('admin-login', password);
+    }
+
+    function updateDisplay(data) {
+      if (data.round !== undefined) {
+        document.getElementById('round').textContent = data.round;
+      }
+
+      if (data.roundName !== undefined) {
+        document.getElementById('input-round-name').value = data.roundName;
+      }
+
+      const leftVotes = data.teamLeft ? data.teamLeft.votes : 0;
+      const rightVotes = data.teamRight ? data.teamRight.votes : 0;
+      const total = leftVotes + rightVotes;
+
+      document.getElementById('votes-left').textContent = leftVotes;
+      document.getElementById('votes-right').textContent = rightVotes;
+
+      if (data.teamLeft && data.teamLeft.name) {
+        document.getElementById('name-left').textContent = data.teamLeft.name;
+        document.getElementById('input-left').placeholder = data.teamLeft.name;
+      }
+      if (data.teamRight && data.teamRight.name) {
+        document.getElementById('name-right').textContent = data.teamRight.name;
+        document.getElementById('input-right').placeholder = data.teamRight.name;
+      }
+
+      const leftPercent = total > 0 ? Math.round((leftVotes / total) * 100) : 0;
+      const rightPercent = total > 0 ? Math.round((rightVotes / total) * 100) : 0;
+
+      document.getElementById('percent-left').textContent = leftPercent + '%';
+      document.getElementById('percent-right').textContent = rightPercent + '%';
+
+      if (data.totalVoters !== undefined) {
+        document.getElementById('total-voters').textContent = data.totalVoters;
+      }
+
+      if (data.votingOpen !== undefined) {
+        votingOpen = data.votingOpen;
+        updateVotingStatus();
+      }
+    }
+
+    function updateVotingStatus() {
+      const status = document.getElementById('voting-status');
+      const btn = document.getElementById('btn-toggle');
+
+      if (votingOpen) {
+        status.className = 'voting-status open';
+        status.textContent = 'Голосование открыто';
+        btn.textContent = 'Закрыть голосование';
+      } else {
+        status.className = 'voting-status closed';
+        status.textContent = 'Голосование закрыто';
+        btn.textContent = 'Открыть голосование';
+      }
+    }
+
+    function toggleVoting() {
+      socket.emit('admin-toggle-voting');
+    }
+
+    function resetVotes() {
+      if (confirm('Сбросить все голоса текущего раунда?')) {
+        socket.emit('admin-reset');
+      }
+    }
+
+    function nextRound() {
+      if (confirm('Перейти к следующему раунду? Голоса будут сброшены.')) {
+        socket.emit('admin-next-round');
+      }
+    }
+
+    function setNames() {
+      const leftName = document.getElementById('input-left').value;
+      const rightName = document.getElementById('input-right').value;
+      const roundName = document.getElementById('input-round-name').value;
+      socket.emit('admin-set-names', { leftName, rightName, roundName });
+    }
+  </script>
+</body>
+</html>

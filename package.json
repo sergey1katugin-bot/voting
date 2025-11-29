@@ -1,0 +1,17 @@
+{
+  "name": "voting-app",
+  "version": "1.0.0",
+  "description": "Real-time voting app for team competitions",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "socket.io": "^4.7.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
