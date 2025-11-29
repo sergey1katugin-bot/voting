@@ -401,7 +401,9 @@
       </div>
 
       <div class="total-voters">
-        Всего голосов: <span id="total-voters">0</span>
+        Всего голосов: <span id="total-voters">0</span> ·
+        Подключено: <span id="connected-users">0</span> ·
+        Проголосовало: <span id="vote-percent">0%</span>
       </div>
 
       <div class="controls">
@@ -514,6 +516,18 @@
       alert(msg);
     });
 
+    socket.on('admin-stats', (data) => {
+      if (data.totalVoters !== undefined) {
+        document.getElementById('total-voters').textContent = data.totalVoters;
+      }
+      if (data.connectedUsers !== undefined) {
+        document.getElementById('connected-users').textContent = data.connectedUsers;
+      }
+      if (data.votePercent !== undefined) {
+        document.getElementById('vote-percent').textContent = data.votePercent + '%';
+      }
+    });
+
     function login() {
       const password = document.getElementById('password').value;
       socket.emit('admin-login', password);
@@ -536,6 +550,14 @@
 
       if (data.totalVoters !== undefined) {
         document.getElementById('total-voters').textContent = data.totalVoters;
+      }
+
+      if (data.connectedUsers !== undefined) {
+        document.getElementById('connected-users').textContent = data.connectedUsers;
+      }
+
+      if (data.votePercent !== undefined) {
+        document.getElementById('vote-percent').textContent = data.votePercent + '%';
       }
 
       if (data.votingOpen !== undefined) {

@@ -24,7 +24,8 @@ let gameState = {
   votingOpen: true,
   // Multiple ways to track voters to prevent cheating
   votersByFingerprint: new Map(), // fingerprint -> { visitorId, visitorKey, teamId }
-  votersBySocket: new Map()       // socket.id -> teamId (backup)
+  votersBySocket: new Map(),      // socket.id -> teamId (backup)
+  connectedUsers: new Set()       // visitorId of connected users (excluding admins)
 };
 
 // Admin password (change this!)
@@ -39,6 +40,19 @@ app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
 
+// Helper to send stats to admins
+function broadcastAdminStats() {
+  const totalVoters = gameState.votersByFingerprint.size || gameState.votersBySocket.size;
+  const connectedUsers = gameState.connectedUsers.size;
+  const votePercent = connectedUsers > 0 ? Math.round((totalVoters / connectedUsers) * 100) : 0;
+
+  io.to('admins').emit('admin-stats', {
+    totalVoters,
+    connectedUsers,
+    votePercent
+  });
+}
+
 // Socket.IO
 io.on('connection', (socket) => {
   console.log('User connected:', socket.id);
@@ -49,6 +63,10 @@ io.on('connection', (socket) => {
   // Register fingerprint
   socket.on('register-fingerprint', (data) => {
     socketFingerprint = data.visitorId;
+
+    // Track connected user
+    gameState.connectedUsers.add(data.visitorId);
+    broadcastAdminStats();
 
     // Check if already voted
     const existingVote = gameState.votersByFingerprint.get(data.visitorId);
@@ -109,6 +127,9 @@ io.on('connection', (socket) => {
       teams: gameState.teams,
       totalVoters: gameState.votersByFingerprint.size || gameState.votersBySocket.size
     });
+
+    // Update admin stats
+    broadcastAdminStats();
   });
 
   // Admin actions
@@ -116,12 +137,17 @@ io.on('connection', (socket) => {
     if (password === ADMIN_PASSWORD) {
       socket.join('admins');
       socket.emit('admin-auth', true);
+      const totalVoters = gameState.votersByFingerprint.size || gameState.votersBySocket.size;
+      const connectedUsers = gameState.connectedUsers.size;
+      const votePercent = connectedUsers > 0 ? Math.round((totalVoters / connectedUsers) * 100) : 0;
       socket.emit('admin-state', {
         round: gameState.round,
         roundName: gameState.roundName,
         teams: gameState.teams,
         votingOpen: gameState.votingOpen,
-        totalVoters: gameState.votersByFingerprint.size || gameState.votersBySocket.size
+        totalVoters,
+        connectedUsers,
+        votePercent
       });
     } else {
       socket.emit('admin-auth', false);
@@ -221,6 +247,11 @@ io.on('connection', (socket) => {
 
   socket.on('disconnect', () => {
     console.log('User disconnected:', socket.id);
+    // Remove from connected users
+    if (socketFingerprint) {
+      gameState.connectedUsers.delete(socketFingerprint);
+      broadcastAdminStats();
+    }
   });
 });
 
