@@ -206,6 +206,41 @@
       display: block;
     }
 
+    /* Joke mode styles */
+    body.joke-mode .team-btn {
+      padding: 30px 20px;
+      border-radius: 24px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+      transition: all 0.15s ease;
+    }
+
+    body.joke-mode .team-btn:not(:disabled) {
+      cursor: pointer;
+    }
+
+    body.joke-mode .team-btn:hover:not(:disabled) {
+      transform: scale(1.05);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+    }
+
+    body.joke-mode .team-btn:active:not(:disabled) {
+      transform: scale(0.95);
+    }
+
+    body.joke-mode .vote-count {
+      display: block;
+      font-size: 4rem;
+      transition: transform 0.15s ease;
+    }
+
+    body.joke-mode .team-btn:active:not(:disabled) .vote-count {
+      transform: scale(1.2);
+    }
+
+    body.joke-mode .cta {
+      color: #fb8c00;
+    }
+
     /* Winner styles */
     .team-btn.winner {
       transform: scale(1.08);
@@ -847,6 +882,14 @@
       socket.emit('vote', { teamId: selectedTeam, visitorId, visitorKey });
     }
 
+    function updateJokeModeClass() {
+      if (jokeMode) {
+        document.body.classList.add('joke-mode');
+      } else {
+        document.body.classList.remove('joke-mode');
+      }
+    }
+
     function updateStatus() {
       const cta = document.getElementById('cta');
       const totalVotersEl = document.getElementById('total-voters');
@@ -887,6 +930,7 @@
       teams = data.teams;
       votingOpen = data.votingOpen;
       jokeMode = data.jokeMode || false;
+      updateJokeModeClass();
 
       // Check if vote session changed (reset happened while offline)
       const savedVote = localStorage.getItem('current_vote');
@@ -975,6 +1019,7 @@
       votingOpen = data.votingOpen;
       if (data.jokeMode !== undefined) {
         jokeMode = data.jokeMode;
+        updateJokeModeClass();
       }
       // When voting closes, server sends results
       if (data.teams) {
@@ -999,6 +1044,7 @@
 
     socket.on('joke-mode-changed', (data) => {
       jokeMode = data.jokeMode;
+      updateJokeModeClass();
       // Reset state when mode changes
       votedFor = null;
       selectedTeam = null;
