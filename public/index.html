@@ -100,8 +100,8 @@
     }
 
     .team-btn:disabled {
-      opacity: 0.4;
-      cursor: not-allowed;
+      opacity: 0.6;
+      cursor: default;
     }
 
     .team-btn.selected {
@@ -119,15 +119,35 @@
       display: block;
     }
 
-    .winner-badge {
-      font-size: 0.85rem;
-      background: #43a047;
+    /* Winner styles */
+    .team-btn.winner {
+      transform: scale(1.08);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+      opacity: 1 !important;
       color: #fff;
-      padding: 6px 12px;
-      border-radius: 20px;
+      animation: winner-pulse 1.5s ease-in-out infinite;
+    }
+
+    .team-btn.loser {
+      opacity: 0.4;
+      transform: scale(0.95);
+    }
+
+    @keyframes winner-pulse {
+      0%, 100% { box-shadow: 0 8px 32px rgba(0,0,0,0.2); }
+      50% { box-shadow: 0 12px 48px rgba(0,0,0,0.3); }
+    }
+
+    .winner-badge {
+      font-size: 1rem;
+      background: #fff;
+      color: #1a1a1a;
+      padding: 8px 16px;
+      border-radius: 24px;
       text-transform: uppercase;
-      letter-spacing: 1px;
-      font-weight: 600;
+      letter-spacing: 2px;
+      font-weight: 700;
+      margin-top: 8px;
     }
 
     .team-name {
@@ -139,12 +159,18 @@
     }
 
     .confirm-section {
-      margin-top: 32px;
+      position: fixed;
+      bottom: 20px;
+      left: 20px;
+      right: 20px;
       text-align: center;
+      z-index: 100;
     }
 
     .confirm-btn {
-      padding: 16px 48px;
+      width: 100%;
+      max-width: 400px;
+      padding: 18px 48px;
       font-size: 1.2rem;
       font-weight: 600;
       border: 3px solid #43a047;
@@ -155,6 +181,7 @@
       transition: all 0.2s ease;
       text-transform: uppercase;
       letter-spacing: 1px;
+      box-shadow: 0 4px 16px rgba(67, 160, 71, 0.4);
     }
 
     .confirm-btn:hover {
@@ -177,11 +204,6 @@
       display: none;
     }
 
-    .selected-team-name {
-      margin-bottom: 12px;
-      font-size: 1rem;
-      color: #666;
-    }
 
     .total-voters {
       margin-top: 24px;
@@ -224,7 +246,6 @@
   </div>
 
   <div class="confirm-section" id="confirm-section">
-    <div class="selected-team-name" id="selected-team-name"></div>
     <button class="confirm-btn hidden" id="confirm-btn" onclick="confirmVote()">
       Подтвердить
     </button>
@@ -346,13 +367,18 @@
 
       container.innerHTML = teams.map(team => {
         const isWinner = showResults && hasVotes && team.votes === maxVotes;
+        const isLoser = showResults && hasVotes && team.votes !== maxVotes;
+
+        // Only disable during active voting if already voted, not when results shown
+        const shouldDisable = votingOpen && votedFor !== null;
+
         return `
           <button
-            class="team-btn ${isSelected(team.id) ? 'selected' : ''} ${isWinner ? 'winner' : ''}"
+            class="team-btn ${isSelected(team.id) ? 'selected' : ''} ${isWinner ? 'winner' : ''} ${isLoser ? 'loser' : ''}"
             style="border-color: ${team.color}; ${isSelected(team.id) || isWinner ? `background: ${team.color}` : ''}"
             data-id="${team.id}"
             data-color="${team.color}"
-            ${votedFor !== null || !votingOpen ? 'disabled' : ''}
+            ${shouldDisable ? 'disabled' : ''}
             onclick="selectTeam(${team.id})"
           >
             <span class="team-name">${team.name}</span>
@@ -383,23 +409,16 @@
 
     function updateConfirmButton() {
       const confirmBtn = document.getElementById('confirm-btn');
-      const selectedName = document.getElementById('selected-team-name');
 
       if (votedFor !== null) {
         // Already voted
         confirmBtn.classList.add('hidden');
-        selectedName.textContent = '';
       } else if (selectedTeam !== null && votingOpen) {
         // Team selected, show confirm
-        const team = teams.find(t => t.id === selectedTeam);
-        if (team) {
-          selectedName.textContent = `Вы выбрали: ${team.name}`;
-          confirmBtn.classList.remove('hidden');
-        }
+        confirmBtn.classList.remove('hidden');
       } else {
         // Nothing selected
         confirmBtn.classList.add('hidden');
-        selectedName.textContent = '';
       }
     }
 
