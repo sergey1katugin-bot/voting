@@ -310,6 +310,7 @@
     let votingOpen = true;
     let visitorId = null;
     let visitorKey = null;
+    let currentVoteSession = null;
 
     // Generate device fingerprint
     async function getFingerprint() {
@@ -545,12 +546,27 @@
       teams = data.teams;
       votingOpen = data.votingOpen;
 
+      // Check if vote session changed (reset happened while offline)
+      const savedVote = localStorage.getItem('current_vote');
+      if (savedVote) {
+        try {
+          const voteData = JSON.parse(savedVote);
+          if (voteData.voteSession !== data.voteSession) {
+            // Session changed, clear old vote
+            localStorage.removeItem('current_vote');
+            votedFor = null;
+          }
+        } catch (e) {}
+      }
+
+      currentVoteSession = data.voteSession;
+
       // Server says we voted - trust it
       if (data.votedFor !== null) {
         votedFor = data.votedFor;
-        // Update localStorage
+        // Update localStorage with session
         try {
-          localStorage.setItem('current_vote', JSON.stringify({ visitorId, teamId: votedFor }));
+          localStorage.setItem('current_vote', JSON.stringify({ visitorId, teamId: votedFor, voteSession: currentVoteSession }));
         } catch (e) {}
       }
 
@@ -567,9 +583,9 @@
 
     socket.on('voted', (teamId) => {
       votedFor = teamId;
-      // Store in localStorage
+      // Store in localStorage with session
       try {
-        localStorage.setItem('current_vote', JSON.stringify({ visitorId, teamId }));
+        localStorage.setItem('current_vote', JSON.stringify({ visitorId, teamId, voteSession: currentVoteSession }));
       } catch (e) {}
       renderTeams();
       updateStatus();
@@ -580,7 +596,9 @@
       document.getElementById('round-name').textContent = data.roundName || '';
       teams = data.teams;
       votedFor = null;
+      selectedTeam = null;
       votingOpen = data.votingOpen;
+      currentVoteSession = data.voteSession;
       document.getElementById('total-voters').textContent = '';
       // Clear localStorage vote
       try {
@@ -595,7 +613,9 @@
       document.getElementById('round-name').textContent = data.roundName || '';
       teams = data.teams;
       votedFor = null;
+      selectedTeam = null;
       votingOpen = data.votingOpen;
+      currentVoteSession = data.voteSession;
       document.getElementById('total-voters').textContent = '';
       // Clear localStorage vote
       try {

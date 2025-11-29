@@ -327,6 +327,64 @@
       padding-bottom: 100px;
     }
 
+    /* History section */
+    .history-section {
+      margin-top: 24px;
+    }
+
+    .history-title {
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #999;
+      margin-bottom: 12px;
+    }
+
+    .history-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .history-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      background: #fff;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+    }
+
+    .history-round {
+      font-weight: 600;
+      color: #1a1a1a;
+      min-width: 70px;
+    }
+
+    .history-results {
+      flex: 1;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .history-team {
+      font-size: 0.85rem;
+      padding: 4px 10px;
+      border-radius: 12px;
+      color: #fff;
+    }
+
+    .history-team.winner {
+      font-weight: 600;
+    }
+
+    .history-voters {
+      font-size: 0.8rem;
+      color: #999;
+    }
+
     #login-error {
       color: #c00;
       margin-top: 12px;
@@ -419,6 +477,11 @@
         </button>
       </div>
 
+      <div class="history-section" id="history-section" style="display: none;">
+        <div class="history-title">История раундов</div>
+        <div class="history-list" id="history-list"></div>
+      </div>
+
     </div>
   </div>
 
@@ -461,6 +524,42 @@
     function updateTeamName(id, name) {
       socket.emit('admin-update-team', { id, name });
     }
+
+    function renderHistory(history) {
+      const section = document.getElementById('history-section');
+      const list = document.getElementById('history-list');
+
+      if (!history || history.length === 0) {
+        section.style.display = 'none';
+        return;
+      }
+
+      section.style.display = 'block';
+
+      list.innerHTML = history.map(item => {
+        const maxVotes = Math.max(...item.teams.map(t => t.votes));
+        const sortedTeams = [...item.teams].sort((a, b) => b.votes - a.votes);
+
+        const teamsHtml = sortedTeams.map(team => {
+          const isWinner = team.votes === maxVotes && maxVotes > 0;
+          return `<span class="history-team ${isWinner ? 'winner' : ''}" style="background: ${team.color}">${team.name}: ${team.votes}</span>`;
+        }).join('');
+
+        const roundLabel = item.roundName ? `Раунд ${item.round}: ${item.roundName}` : `Раунд ${item.round}`;
+
+        return `
+          <div class="history-item">
+            <span class="history-round">${roundLabel}</span>
+            <div class="history-results">${teamsHtml}</div>
+            <span class="history-voters">${item.totalVoters} гол.</span>
+          </div>
+        `;
+      }).join('');
+    }
+
+    socket.on('round-history', (history) => {
+      renderHistory(history);
+    });
 
     socket.on('admin-auth', (success) => {
       if (success) {

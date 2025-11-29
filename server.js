@@ -17,6 +17,7 @@ const TEAM_COLORS = ['#e53935', '#1e88e5', '#43a047', '#fb8c00', '#8e24aa', '#00
 let gameState = {
   round: 1,
   roundName: '',
+  voteSession: Date.now(), // Unique ID for current voting session, changes on reset/new round
   teams: [
     { id: 0, name: 'Команда 1', votes: 0, color: TEAM_COLORS[0] },
     { id: 1, name: 'Команда 2', votes: 0, color: TEAM_COLORS[1] }
@@ -27,6 +28,9 @@ let gameState = {
   votersBySocket: new Map(),      // socket.id -> teamId (backup)
   connectedUsers: new Set()       // visitorId of connected users (excluding admins)
 };
+
+// History of last 10 rounds
+let roundHistory = [];
 
 // Admin password (change this!)
 const ADMIN_PASSWORD = 'admin123';
@@ -74,6 +78,7 @@ io.on('connection', (socket) => {
     socket.emit('state', {
       round: gameState.round,
       roundName: gameState.roundName,
+      voteSession: gameState.voteSession,
       teams: gameState.teams,
       votingOpen: gameState.votingOpen,
       votedFor: existingVote ? existingVote.teamId : null
@@ -149,6 +154,8 @@ io.on('connection', (socket) => {
         connectedUsers,
         votePercent
       });
+      // Send round history
+      socket.emit('round-history', roundHistory);
     } else {
       socket.emit('admin-auth', false);
     }
@@ -160,11 +167,13 @@ io.on('connection', (socket) => {
       gameState.votersByFingerprint.clear();
       gameState.votersBySocket.clear();
       gameState.votingOpen = true;
+      gameState.voteSession = Date.now(); // New session ID
 
       // Notify all users
       io.emit('reset', {
         round: gameState.round,
         roundName: gameState.roundName,
+        voteSession: gameState.voteSession,
         teams: gameState.teams,
         votingOpen: gameState.votingOpen
       });
@@ -173,8 +182,27 @@ io.on('connection', (socket) => {
 
   socket.on('admin-next-round', () => {
     if (socket.rooms.has('admins')) {
+      // Save current round to history before moving to next
+      const totalVoters = gameState.votersByFingerprint.size || gameState.votersBySocket.size;
+      if (totalVoters > 0) {
+        roundHistory.unshift({
+          round: gameState.round,
+          roundName: gameState.roundName,
+          teams: gameState.teams.map(t => ({ ...t })),
+          totalVoters,
+          timestamp: Date.now()
+        });
+        // Keep only last 10
+        if (roundHistory.length > 10) {
+          roundHistory.pop();
+        }
+        // Notify admins of updated history
+        io.to('admins').emit('round-history', roundHistory);
+      }
+
       gameState.round++;
       gameState.roundName = '';
+      gameState.voteSession = Date.now(); // New session ID
       gameState.teams.forEach(t => t.votes = 0);
       gameState.votersByFingerprint.clear();
       gameState.votersBySocket.clear();
@@ -183,6 +211,7 @@ io.on('connection', (socket) => {
       io.emit('new-round', {
         round: gameState.round,
         roundName: gameState.roundName,
+        voteSession: gameState.voteSession,
         teams: gameState.teams,
         votingOpen: gameState.votingOpen
       });
