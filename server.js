@@ -13,16 +13,27 @@ app.use(express.static(path.join(__dirname, 'public')));
 // Team colors for dynamic teams
 const TEAM_COLORS = ['#e53935', '#1e88e5', '#43a047', '#fb8c00', '#8e24aa', '#00acc1'];
 
+// Default rounds list
+const DEFAULT_ROUNDS = [
+  { id: 1, name: 'Раунд 1' },
+  { id: 2, name: 'Раунд 2' },
+  { id: 3, name: 'Раунд 3' },
+  { id: 4, name: 'Раунд 4' },
+  { id: 5, name: 'Раунд 5' }
+];
+
 // Game state
 let gameState = {
   round: 1,
   roundName: '',
+  roundsList: JSON.parse(JSON.stringify(DEFAULT_ROUNDS)), // List of all rounds
   voteSession: Date.now(), // Unique ID for current voting session, changes on reset/new round
   teams: [
     { id: 0, name: 'Команда 1', votes: 0, color: TEAM_COLORS[0] },
     { id: 1, name: 'Команда 2', votes: 0, color: TEAM_COLORS[1] }
   ],
   votingOpen: true,
+  jokeMode: false, // Joke counter mode - allows multiple votes with cooldown
   // Multiple ways to track voters to prevent cheating
   votersByFingerprint: new Map(), // fingerprint -> { visitorId, visitorKey, teamId }
   votersBySocket: new Map(),      // socket.id -> teamId (backup)
@@ -79,6 +90,7 @@ io.on('connection', (socket) => {
       voteSession: gameState.voteSession,
       teams: gameState.teams,
       votingOpen: gameState.votingOpen,
+      jokeMode: gameState.jokeMode,
       votedFor: socketFingerprint ? (gameState.votersByFingerprint.get(socketFingerprint)?.teamId ?? null) : null
     });
   });
@@ -100,6 +112,7 @@ io.on('connection', (socket) => {
       voteSession: gameState.voteSession,
       teams: gameState.teams,
       votingOpen: gameState.votingOpen,
+      jokeMode: gameState.jokeMode,
       votedFor: existingVote ? existingVote.teamId : null
     });
   });
@@ -111,18 +124,21 @@ io.on('connection', (socket) => {
       return;
     }
 
-    // Check by fingerprint (primary)
-    if (visitorId && gameState.votersByFingerprint.has(visitorId)) {
-      socket.emit('error', 'Вы уже голосовали');
-      socket.emit('voted', gameState.votersByFingerprint.get(visitorId).teamId);
-      return;
-    }
+    // In normal mode, check if already voted
+    if (!gameState.jokeMode) {
+      // Check by fingerprint (primary)
+      if (visitorId && gameState.votersByFingerprint.has(visitorId)) {
+        socket.emit('error', 'Вы уже голосовали');
+        socket.emit('voted', gameState.votersByFingerprint.get(visitorId).teamId);
+        return;
+      }
 
-    // Check by socket (backup)
-    if (gameState.votersBySocket.has(socket.id)) {
-      socket.emit('error', 'Вы уже голосовали');
-      socket.emit('voted', gameState.votersBySocket.get(socket.id));
-      return;
+      // Check by socket (backup)
+      if (gameState.votersBySocket.has(socket.id)) {
+        socket.emit('error', 'Вы уже голосовали');
+        socket.emit('voted', gameState.votersBySocket.get(socket.id));
+        return;
+      }
     }
 
     const team = gameState.teams.find(t => t.id === teamId);
@@ -133,15 +149,17 @@ io.on('connection', (socket) => {
 
     team.votes++;
 
-    // Store vote by fingerprint
-    if (visitorId) {
+    // Store vote by fingerprint (only in normal mode)
+    if (!gameState.jokeMode && visitorId) {
       gameState.votersByFingerprint.set(visitorId, { visitorId, visitorKey, teamId });
     }
 
-    // Store by socket as backup
-    gameState.votersBySocket.set(socket.id, teamId);
+    // Store by socket as backup (only in normal mode)
+    if (!gameState.jokeMode) {
+      gameState.votersBySocket.set(socket.id, teamId);
+    }
 
-    console.log(`Vote: team=${teamId}, visitorId=${visitorId?.substring(0, 8)}..., socket=${socket.id}`);
+    console.log(`Vote: team=${teamId}, visitorId=${visitorId?.substring(0, 8)}..., socket=${socket.id}, jokeMode=${gameState.jokeMode}`);
 
     // Notify the voter
     socket.emit('voted', teamId);
@@ -167,8 +185,10 @@ io.on('connection', (socket) => {
       socket.emit('admin-state', {
         round: gameState.round,
         roundName: gameState.roundName,
+        roundsList: gameState.roundsList,
         teams: gameState.teams,
         votingOpen: gameState.votingOpen,
+        jokeMode: gameState.jokeMode,
         totalVoters,
         connectedUsers,
         votePercent
@@ -219,8 +239,24 @@ io.on('connection', (socket) => {
         io.to('admins').emit('round-history', roundHistory);
       }
 
-      gameState.round++;
-      gameState.roundName = '';
+      // Find current round index and move to next
+      const currentIndex = gameState.roundsList.findIndex(r => r.id === gameState.round);
+      const nextIndex = currentIndex + 1;
+
+      if (nextIndex < gameState.roundsList.length) {
+        // Move to next round in list
+        const nextRound = gameState.roundsList[nextIndex];
+        gameState.round = nextRound.id;
+        gameState.roundName = nextRound.name;
+      } else {
+        // No more rounds in list, create new one
+        const newId = Math.max(...gameState.roundsList.map(r => r.id)) + 1;
+        gameState.roundsList.push({ id: newId, name: `Раунд ${newId}` });
+        gameState.round = newId;
+        gameState.roundName = `Раунд ${newId}`;
+        io.to('admins').emit('rounds-list-updated', { roundsList: gameState.roundsList });
+      }
+
       gameState.voteSession = Date.now(); // New session ID
       gameState.teams.forEach(t => t.votes = 0);
       gameState.votersByFingerprint.clear();
@@ -243,8 +279,22 @@ io.on('connection', (socket) => {
       // When closing voting, send results to all clients
       io.emit('voting-status', {
         votingOpen: gameState.votingOpen,
+        jokeMode: gameState.jokeMode,
         teams: gameState.teams,
         totalVoters: gameState.votersByFingerprint.size || gameState.votersBySocket.size
+      });
+    }
+  });
+
+  socket.on('admin-toggle-joke-mode', () => {
+    if (socket.rooms.has('admins')) {
+      gameState.jokeMode = !gameState.jokeMode;
+      // Clear vote tracking when switching modes
+      gameState.votersByFingerprint.clear();
+      gameState.votersBySocket.clear();
+      // Notify all clients
+      io.emit('joke-mode-changed', {
+        jokeMode: gameState.jokeMode
       });
     }
   });
@@ -290,6 +340,59 @@ io.on('connection', (socket) => {
       }
       gameState.teams = gameState.teams.filter(t => t.id !== teamId);
       io.emit('teams-updated', { teams: gameState.teams });
+    }
+  });
+
+  // Rounds list management
+  socket.on('admin-update-rounds-list', (roundsList) => {
+    if (socket.rooms.has('admins')) {
+      gameState.roundsList = roundsList;
+      // Update current round name if it exists in the list
+      const currentRoundData = roundsList.find(r => r.id === gameState.round);
+      if (currentRoundData) {
+        gameState.roundName = currentRoundData.name;
+        io.emit('round-name-updated', { roundName: gameState.roundName });
+      }
+      io.to('admins').emit('rounds-list-updated', { roundsList: gameState.roundsList });
+    }
+  });
+
+  socket.on('admin-add-round', () => {
+    if (socket.rooms.has('admins')) {
+      const newId = gameState.roundsList.length > 0
+        ? Math.max(...gameState.roundsList.map(r => r.id)) + 1
+        : 1;
+      gameState.roundsList.push({
+        id: newId,
+        name: `Раунд ${newId}`
+      });
+      io.to('admins').emit('rounds-list-updated', { roundsList: gameState.roundsList });
+    }
+  });
+
+  socket.on('admin-remove-round', (roundId) => {
+    if (socket.rooms.has('admins')) {
+      if (gameState.roundsList.length <= 1) {
+        socket.emit('error', 'Минимум 1 раунд');
+        return;
+      }
+      gameState.roundsList = gameState.roundsList.filter(r => r.id !== roundId);
+      io.to('admins').emit('rounds-list-updated', { roundsList: gameState.roundsList });
+    }
+  });
+
+  socket.on('admin-update-round-name', ({ roundId, name }) => {
+    if (socket.rooms.has('admins')) {
+      const round = gameState.roundsList.find(r => r.id === roundId);
+      if (round) {
+        round.name = name;
+        // If this is the current round, update the display name
+        if (roundId === gameState.round) {
+          gameState.roundName = name;
+          io.emit('round-name-updated', { roundName: gameState.roundName });
+        }
+        io.to('admins').emit('rounds-list-updated', { roundsList: gameState.roundsList });
+      }
     }
   });
 

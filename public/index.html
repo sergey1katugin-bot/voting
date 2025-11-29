@@ -396,6 +396,39 @@
       color: #1a1a1a;
     }
 
+    /* Joke mode cooldown button */
+    .cooldown-btn {
+      position: fixed;
+      bottom: 20px;
+      left: 20px;
+      right: 20px;
+      padding: 18px;
+      font-size: 1.2rem;
+      font-weight: 600;
+      border: 3px solid #e0e0e0;
+      border-radius: 12px;
+      background: #e0e0e0;
+      color: #999;
+      text-align: center;
+      z-index: 100;
+    }
+
+    .cooldown-btn.hidden {
+      display: none;
+    }
+
+    .cooldown-btn .timer {
+      display: inline-block;
+      width: 24px;
+      height: 24px;
+      line-height: 24px;
+      background: #999;
+      color: #fff;
+      border-radius: 50%;
+      font-size: 0.9rem;
+      margin-left: 8px;
+    }
+
     .team-btn.winner {
       color: #fff;
       transform: scale(1.05);
@@ -442,6 +475,10 @@
     </button>
   </div>
 
+  <div class="cooldown-btn hidden" id="cooldown-btn">
+    Подождите <span class="timer" id="cooldown-timer">3</span>
+  </div>
+
   <div class="total-voters" id="total-voters"></div>
 
   <div class="vote-progress hidden" id="vote-progress">
@@ -464,6 +501,10 @@
     let votedFor = null;        // Confirmed vote
     let selectedTeam = null;    // Pre-selected (not confirmed yet)
     let votingOpen = true;
+    let jokeMode = false;       // Joke counter mode
+    let jokeCooldown = false;   // Cooldown active
+    let cooldownTimer = null;   // Timer reference
+    let cooldownSeconds = 0;    // Remaining seconds
     let visitorId = null;
     let visitorKey = null;
     let currentVoteSession = null;
@@ -632,7 +673,10 @@
         const isTied = showResults && hasVotes && isTie && team.votes === maxVotes;
 
         // Only disable during active voting if already voted, not when results shown
-        const shouldDisable = votingOpen && votedFor !== null;
+        // In joke mode, only disable during cooldown; in normal mode, disable after voting
+        const shouldDisable = jokeMode
+          ? (votingOpen && jokeCooldown)
+          : (votingOpen && votedFor !== null);
 
         // Trophy for places when showing results
         const place = showResults && hasVotes ? index + 1 : 0;
@@ -697,6 +741,13 @@
       const confirmBtn = document.getElementById('confirm-btn');
       const selectedInfo = document.getElementById('selected-info');
 
+      // In joke mode, never show confirm button
+      if (jokeMode) {
+        confirmBtn.classList.add('hidden');
+        selectedInfo.classList.add('hidden');
+        return;
+      }
+
       if (votedFor !== null) {
         // Already voted
         confirmBtn.classList.add('hidden');
@@ -717,9 +768,44 @@
     }
 
     function selectTeam(teamId) {
-      if (votedFor !== null || !votingOpen) return;
+      if (!votingOpen) return;
+
+      // Joke mode - vote immediately with cooldown
+      if (jokeMode) {
+        if (jokeCooldown) return; // Still in cooldown
+        socket.emit('vote', { teamId, visitorId, visitorKey });
+        startCooldown();
+        return;
+      }
+
+      // Normal mode - select and confirm
+      if (votedFor !== null) return;
       selectedTeam = teamId;
       renderTeams();
+    }
+
+    function startCooldown() {
+      jokeCooldown = true;
+      cooldownSeconds = 3;
+      updateCooldownUI();
+
+      cooldownTimer = setInterval(() => {
+        cooldownSeconds--;
+        if (cooldownSeconds <= 0) {
+          clearInterval(cooldownTimer);
+          jokeCooldown = false;
+          document.getElementById('cooldown-btn').classList.add('hidden');
+        } else {
+          updateCooldownUI();
+        }
+      }, 1000);
+    }
+
+    function updateCooldownUI() {
+      const cooldownBtn = document.getElementById('cooldown-btn');
+      const timerEl = document.getElementById('cooldown-timer');
+      cooldownBtn.classList.remove('hidden');
+      timerEl.textContent = cooldownSeconds;
     }
 
     function confirmVote() {
@@ -746,6 +832,10 @@
         }
         // Show results when voting is closed
         totalVotersEl.classList.add('visible');
+      } else if (jokeMode) {
+        // Joke mode - always show "tap to vote"
+        cta.textContent = 'Нажимай на команду!';
+        totalVotersEl.classList.remove('visible');
       } else if (votedFor !== null) {
         cta.classList.add('voted');
         cta.textContent = 'Спасибо за голос!';
@@ -762,6 +852,7 @@
       document.getElementById('round-name').textContent = data.roundName || '';
       teams = data.teams;
       votingOpen = data.votingOpen;
+      jokeMode = data.jokeMode || false;
 
       // Check if vote session changed (reset happened while offline)
       const savedVote = localStorage.getItem('current_vote');
@@ -778,8 +869,8 @@
 
       currentVoteSession = data.voteSession;
 
-      // Server says we voted - trust it
-      if (data.votedFor !== null) {
+      // Server says we voted - trust it (only in normal mode)
+      if (!jokeMode && data.votedFor !== null) {
         votedFor = data.votedFor;
         // Update localStorage with session
         try {
@@ -848,6 +939,9 @@
     socket.on('voting-status', (data) => {
       const wasOpen = votingOpen;
       votingOpen = data.votingOpen;
+      if (data.jokeMode !== undefined) {
+        jokeMode = data.jokeMode;
+      }
       // When voting closes, server sends results
       if (data.teams) {
         teams = data.teams;
@@ -867,6 +961,24 @@
       if (wasOpen && !votingOpen) {
         miniConfetti();
       }
+    });
+
+    socket.on('joke-mode-changed', (data) => {
+      jokeMode = data.jokeMode;
+      // Reset state when mode changes
+      votedFor = null;
+      selectedTeam = null;
+      jokeCooldown = false;
+      if (cooldownTimer) {
+        clearInterval(cooldownTimer);
+        cooldownTimer = null;
+      }
+      document.getElementById('cooldown-btn').classList.add('hidden');
+      try {
+        localStorage.removeItem('current_vote');
+      } catch (e) {}
+      renderTeams();
+      updateStatus();
     });
 
     socket.on('round-name-updated', (data) => {

@@ -477,6 +477,262 @@
         min-width: 80px;
       }
     }
+
+    /* Mode toggle */
+    .mode-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      margin-bottom: 24px;
+      padding: 16px;
+      background: #fff;
+      border: 1px solid #e0e0e0;
+      border-radius: 12px;
+    }
+
+    .mode-toggle label {
+      font-size: 0.9rem;
+      color: #666;
+      cursor: pointer;
+    }
+
+    .mode-toggle label.active {
+      color: #1a1a1a;
+      font-weight: 600;
+    }
+
+    .toggle-switch {
+      position: relative;
+      width: 50px;
+      height: 26px;
+      background: #e0e0e0;
+      border-radius: 13px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .toggle-switch.active {
+      background: #fb8c00;
+    }
+
+    .toggle-switch::after {
+      content: '';
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 20px;
+      height: 20px;
+      background: #fff;
+      border-radius: 50%;
+      transition: transform 0.2s;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+
+    .toggle-switch.active::after {
+      transform: translateX(24px);
+    }
+
+    /* Expandable rounds panel */
+    .rounds-panel {
+      margin-bottom: 24px;
+      background: #fff;
+      border: 1px solid #e0e0e0;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .rounds-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .rounds-header:hover {
+      background: #f5f5f5;
+    }
+
+    .rounds-header-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .rounds-header .current-round {
+      font-weight: 600;
+      color: #1a1a1a;
+    }
+
+    .rounds-header .round-progress {
+      font-size: 0.85rem;
+      color: #999;
+    }
+
+    .rounds-header .expand-icon {
+      transition: transform 0.2s;
+      color: #999;
+    }
+
+    .rounds-panel.expanded .expand-icon {
+      transform: rotate(180deg);
+    }
+
+    .rounds-list {
+      display: none;
+      border-top: 1px solid #e0e0e0;
+      padding: 12px;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+
+    .rounds-panel.expanded .rounds-list {
+      display: block;
+    }
+
+    .round-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      margin-bottom: 4px;
+      transition: background 0.2s;
+    }
+
+    .round-item:hover {
+      background: #f5f5f5;
+    }
+
+    .round-item.current {
+      background: #e3f2fd;
+    }
+
+    .round-item.completed {
+      opacity: 0.6;
+    }
+
+    .round-item .round-number {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: #e0e0e0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #666;
+    }
+
+    .round-item.current .round-number {
+      background: #1e88e5;
+      color: #fff;
+    }
+
+    .round-item.completed .round-number {
+      background: #43a047;
+      color: #fff;
+    }
+
+    .round-item .round-name-input {
+      flex: 1;
+      border: 1px solid transparent;
+      background: transparent;
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 0.9rem;
+    }
+
+    .round-item .round-name-input:hover {
+      border-color: #e0e0e0;
+    }
+
+    .round-item .round-name-input:focus {
+      outline: none;
+      border-color: #1a1a1a;
+      background: #fff;
+    }
+
+    .round-item .btn-remove-round {
+      opacity: 0;
+      padding: 4px 8px;
+      border: none;
+      background: none;
+      color: #999;
+      cursor: pointer;
+      font-size: 1rem;
+      transition: opacity 0.2s, color 0.2s;
+    }
+
+    .round-item:hover .btn-remove-round {
+      opacity: 1;
+    }
+
+    .round-item .btn-remove-round:hover {
+      color: #e53935;
+    }
+
+    .add-round-btn {
+      width: 100%;
+      padding: 10px;
+      border: 2px dashed #ccc;
+      border-radius: 8px;
+      background: transparent;
+      color: #999;
+      cursor: pointer;
+      font-size: 0.9rem;
+      transition: all 0.2s;
+      margin-top: 8px;
+    }
+
+    .add-round-btn:hover {
+      border-color: #1a1a1a;
+      color: #1a1a1a;
+    }
+
+    /* Voting status styles */
+    .voting-status {
+      text-align: center;
+      padding: 16px 20px;
+      border-radius: 12px;
+      font-size: 1rem;
+      margin-bottom: 24px;
+      font-weight: 600;
+      transition: all 0.3s;
+    }
+
+    .voting-status.open {
+      background: #e8f5e9;
+      border: 2px solid #43a047;
+      color: #2e7d32;
+    }
+
+    .voting-status.open::before {
+      content: '🟢 ';
+    }
+
+    .voting-status.closed {
+      background: #ffebee;
+      border: 2px solid #e53935;
+      color: #c62828;
+    }
+
+    .voting-status.closed::before {
+      content: '🔴 ';
+    }
+
+    .voting-status.joke-mode {
+      background: #fff3e0;
+      border: 2px solid #fb8c00;
+      color: #e65100;
+    }
+
+    .voting-status.joke-mode::before {
+      content: '🎭 ';
+    }
   </style>
 </head>
 <body>
@@ -493,13 +749,27 @@
     <div class="admin-panel" id="admin-panel">
       <h1>Управление</h1>
 
-      <div class="round-info">
-        Раунд <span id="round">1</span> ·
-        <input type="text" id="input-round-name" class="round-name-input" placeholder="название раунда" onchange="setRoundName()">
+      <div class="rounds-panel" id="rounds-panel">
+        <div class="rounds-header" onclick="toggleRoundsPanel()">
+          <div class="rounds-header-left">
+            <span class="current-round" id="current-round-display">Раунд 1</span>
+            <span class="round-progress" id="round-progress">1 из 5</span>
+          </div>
+          <span class="expand-icon">▼</span>
+        </div>
+        <div class="rounds-list" id="rounds-list">
+          <!-- Rounds will be rendered here -->
+        </div>
       </div>
 
       <div class="voting-status open" id="voting-status">
         Голосование открыто
+      </div>
+
+      <div class="mode-toggle">
+        <label id="mode-label-normal" class="active">Обычный режим</label>
+        <div class="toggle-switch" id="mode-toggle" onclick="toggleJokeMode()"></div>
+        <label id="mode-label-joke">Счётчик шуток</label>
       </div>
 
       <div class="results" id="results-container">
@@ -542,7 +812,10 @@
   <script>
     const socket = io();
     let votingOpen = true;
+    let jokeMode = false;
     let teams = [];
+    let roundsList = [];
+    let currentRound = 1;
 
     // Try auto-login with saved password
     const savedPassword = localStorage.getItem('admin_password');
@@ -674,7 +947,14 @@
     });
 
     socket.on('new-round', (data) => {
+      currentRound = data.round;
+      renderRoundsList();
       updateDisplay(data);
+    });
+
+    socket.on('rounds-list-updated', (data) => {
+      roundsList = data.roundsList;
+      renderRoundsList();
     });
 
     socket.on('voting-status', (data) => {
@@ -682,8 +962,17 @@
       if (data.teams) {
         teams = data.teams;
       }
+      if (data.jokeMode !== undefined) {
+        jokeMode = data.jokeMode;
+        updateJokeModeUI();
+      }
       updateVotingStatus();
       renderResults(); // Re-render to show winner/loser styles
+    });
+
+    socket.on('joke-mode-changed', (data) => {
+      jokeMode = data.jokeMode;
+      updateJokeModeUI();
     });
 
     socket.on('round-name-updated', (data) => {
@@ -718,11 +1007,12 @@
 
     function updateDisplay(data) {
       if (data.round !== undefined) {
-        document.getElementById('round').textContent = data.round;
+        currentRound = data.round;
       }
 
-      if (data.roundName !== undefined) {
-        document.getElementById('input-round-name').value = data.roundName;
+      if (data.roundsList !== undefined) {
+        roundsList = data.roundsList;
+        renderRoundsList();
       }
 
       if (data.teams) {
@@ -746,18 +1036,103 @@
         votingOpen = data.votingOpen;
         updateVotingStatus();
       }
+
+      if (data.jokeMode !== undefined) {
+        jokeMode = data.jokeMode;
+        updateJokeModeUI();
+        updateVotingStatus();
+      }
+    }
+
+    function updateJokeModeUI() {
+      const toggle = document.getElementById('mode-toggle');
+      const labelNormal = document.getElementById('mode-label-normal');
+      const labelJoke = document.getElementById('mode-label-joke');
+
+      if (jokeMode) {
+        toggle.classList.add('active');
+        labelNormal.classList.remove('active');
+        labelJoke.classList.add('active');
+      } else {
+        toggle.classList.remove('active');
+        labelNormal.classList.add('active');
+        labelJoke.classList.remove('active');
+      }
+    }
+
+    function toggleJokeMode() {
+      socket.emit('admin-toggle-joke-mode');
+    }
+
+    // Rounds panel
+    function toggleRoundsPanel() {
+      document.getElementById('rounds-panel').classList.toggle('expanded');
+    }
+
+    function renderRoundsList() {
+      const container = document.getElementById('rounds-list');
+      const currentIndex = roundsList.findIndex(r => r.id === currentRound);
+
+      const roundsHtml = roundsList.map((round, index) => {
+        const isCurrent = round.id === currentRound;
+        const isCompleted = index < currentIndex;
+        const classes = ['round-item'];
+        if (isCurrent) classes.push('current');
+        if (isCompleted) classes.push('completed');
+
+        return `
+          <div class="${classes.join(' ')}" data-id="${round.id}">
+            <div class="round-number">${index + 1}</div>
+            <input type="text" class="round-name-input" value="${round.name}"
+              onchange="updateRoundName(${round.id}, this.value)"
+              placeholder="Название раунда">
+            <button class="btn-remove-round" onclick="removeRound(${round.id})">✕</button>
+          </div>
+        `;
+      }).join('');
+
+      const addBtn = `<button class="add-round-btn" onclick="addRound()">+ Добавить раунд</button>`;
+
+      container.innerHTML = roundsHtml + addBtn;
+
+      // Update header
+      const currentRoundData = roundsList.find(r => r.id === currentRound);
+      document.getElementById('current-round-display').textContent = currentRoundData ? currentRoundData.name : `Раунд ${currentRound}`;
+      document.getElementById('round-progress').textContent = `${currentIndex + 1} из ${roundsList.length}`;
+    }
+
+    function updateRoundName(roundId, name) {
+      socket.emit('admin-update-round-name', { roundId, name });
+    }
+
+    function addRound() {
+      socket.emit('admin-add-round');
+    }
+
+    function removeRound(roundId) {
+      if (roundsList.length <= 1) {
+        alert('Минимум 1 раунд');
+        return;
+      }
+      socket.emit('admin-remove-round', roundId);
     }
 
     function updateVotingStatus() {
       const status = document.getElementById('voting-status');
       const btnMain = document.getElementById('btn-main');
 
-      if (votingOpen) {
-        status.className = 'voting-status open';
+      status.className = 'voting-status';
+
+      if (jokeMode && votingOpen) {
+        status.classList.add('joke-mode');
+        status.textContent = 'Счётчик шуток активен';
+        btnMain.textContent = 'Закрыть голосование';
+      } else if (votingOpen) {
+        status.classList.add('open');
         status.textContent = 'Голосование открыто';
         btnMain.textContent = 'Закрыть голосование';
       } else {
-        status.className = 'voting-status closed';
+        status.classList.add('closed');
         status.textContent = 'Голосование закрыто';
         btnMain.textContent = 'Следующий раунд';
       }
