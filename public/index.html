@@ -402,6 +402,13 @@
 
     init();
 
+    // Re-sync state when user returns to page (after switching tabs/apps)
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible' && visitorId) {
+        socket.emit('register-fingerprint', { visitorId, visitorKey });
+      }
+    });
+
     function renderTeams() {
       const container = document.getElementById('voting-container');
       const isSelected = (id) => votedFor === id || selectedTeam === id;
