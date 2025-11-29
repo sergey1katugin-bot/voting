@@ -18,8 +18,8 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: center;
-      padding: 20px;
+      justify-content: flex-start;
+      padding: 40px 20px 120px;
       color: #1a1a1a;
     }
 
@@ -53,6 +53,57 @@
 
     @keyframes spin {
       to { transform: rotate(360deg); }
+    }
+
+    /* New round announcement */
+    .round-announcement {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(26, 26, 26, 0.95);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s;
+    }
+
+    .round-announcement.visible {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .round-announcement .round-number {
+      font-size: 6rem;
+      font-weight: 700;
+      color: #fff;
+      line-height: 1;
+      animation: round-pop 0.5s ease-out;
+    }
+
+    .round-announcement .round-label {
+      font-size: 1.5rem;
+      color: rgba(255,255,255,0.7);
+      text-transform: uppercase;
+      letter-spacing: 4px;
+      margin-bottom: 16px;
+    }
+
+    .round-announcement .round-title {
+      font-size: 1.2rem;
+      color: rgba(255,255,255,0.5);
+      margin-top: 16px;
+    }
+
+    @keyframes round-pop {
+      0% { transform: scale(0.5); opacity: 0; }
+      50% { transform: scale(1.1); }
+      100% { transform: scale(1); opacity: 1; }
     }
 
     .header {
@@ -374,6 +425,12 @@
     <div class="loading-spinner"></div>
   </div>
 
+  <div class="round-announcement" id="round-announcement">
+    <div class="round-label">Раунд</div>
+    <div class="round-number" id="announcement-number">1</div>
+    <div class="round-title" id="announcement-title"></div>
+  </div>
+
   <div class="voting-container" id="voting-container">
     <!-- Teams will be rendered here -->
   </div>
@@ -509,6 +566,23 @@
     function hideLoader() {
       awaitingState = false;
       loadingOverlay.classList.add('hidden');
+    }
+
+    // Round announcement
+    const roundAnnouncement = document.getElementById('round-announcement');
+
+    function showRoundAnnouncement(roundNum, roundTitle) {
+      document.getElementById('announcement-number').textContent = roundNum;
+      const titleEl = document.getElementById('announcement-title');
+      titleEl.textContent = roundTitle || '';
+      titleEl.style.display = roundTitle ? 'block' : 'none';
+
+      roundAnnouncement.classList.add('visible');
+
+      // Auto-hide after 2 seconds
+      setTimeout(() => {
+        roundAnnouncement.classList.remove('visible');
+      }, 2000);
     }
 
     function requestSync() {
@@ -766,6 +840,9 @@
       } catch (e) {}
       renderTeams();
       updateStatus();
+
+      // Show round announcement
+      showRoundAnnouncement(data.round, data.roundName);
     });
 
     socket.on('voting-status', (data) => {
