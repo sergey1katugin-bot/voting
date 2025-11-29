@@ -282,14 +282,21 @@
     }
 
     .controls {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      display: flex;
       gap: 12px;
-      margin-bottom: 24px;
+      padding: 16px 20px;
+      background: #fff;
+      border-top: 1px solid #e0e0e0;
+      box-shadow: 0 -4px 12px rgba(0,0,0,0.1);
+      z-index: 100;
     }
 
     .controls button {
-      padding: 16px;
+      padding: 16px 24px;
       border: 2px solid #1a1a1a;
       border-radius: 8px;
       font-size: 0.9rem;
@@ -306,12 +313,18 @@
     }
 
     .controls button.primary {
+      flex: 1;
       background: #1a1a1a;
       color: #fff;
+      font-size: 1rem;
     }
 
     .controls button.primary:hover {
       background: #333;
+    }
+
+    .admin-panel {
+      padding-bottom: 100px;
     }
 
     #login-error {
@@ -398,14 +411,11 @@
       </div>
 
       <div class="controls">
-        <button id="btn-toggle" onclick="toggleVoting()">
+        <button id="btn-main" class="primary" onclick="mainAction()">
           Закрыть голосование
         </button>
-        <button onclick="resetVotes()">
+        <button id="btn-reset" onclick="resetVotes()">
           Сбросить голоса
-        </button>
-        <button class="primary" onclick="nextRound()" style="grid-column: span 2;">
-          Следующий раунд
         </button>
       </div>
 
@@ -555,32 +565,32 @@
 
     function updateVotingStatus() {
       const status = document.getElementById('voting-status');
-      const btn = document.getElementById('btn-toggle');
+      const btnMain = document.getElementById('btn-main');
 
       if (votingOpen) {
         status.className = 'voting-status open';
         status.textContent = 'Голосование открыто';
-        btn.textContent = 'Закрыть голосование';
+        btnMain.textContent = 'Закрыть голосование';
       } else {
         status.className = 'voting-status closed';
         status.textContent = 'Голосование закрыто';
-        btn.textContent = 'Открыть голосование';
+        btnMain.textContent = 'Следующий раунд';
       }
     }
 
-    function toggleVoting() {
-      socket.emit('admin-toggle-voting');
+    function mainAction() {
+      if (votingOpen) {
+        // Close voting
+        socket.emit('admin-toggle-voting');
+      } else {
+        // Next round
+        socket.emit('admin-next-round');
+      }
     }
 
     function resetVotes() {
       if (confirm('Сбросить все голоса текущего раунда?')) {
         socket.emit('admin-reset');
-      }
-    }
-
-    function nextRound() {
-      if (confirm('Перейти к следующему раунду? Голоса будут сброшены.')) {
-        socket.emit('admin-next-round');
       }
     }
 

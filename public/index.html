@@ -150,6 +150,51 @@
       margin-top: 8px;
     }
 
+    /* Tie styles */
+    .team-btn.tied {
+      color: #fff;
+      opacity: 1;
+    }
+
+    .tie-badge {
+      font-size: 0.9rem;
+      background: rgba(255,255,255,0.9);
+      color: #1a1a1a;
+      padding: 6px 14px;
+      border-radius: 20px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-weight: 600;
+      margin-top: 8px;
+    }
+
+    .trophy {
+      font-size: 2rem;
+      line-height: 1;
+    }
+
+    /* Mini confetti */
+    .confetti {
+      position: fixed;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      pointer-events: none;
+      animation: confetti-fall 2s ease-out forwards;
+      z-index: 1000;
+    }
+
+    @keyframes confetti-fall {
+      0% {
+        opacity: 1;
+        transform: translateY(0) rotate(0deg) scale(1);
+      }
+      100% {
+        opacity: 0;
+        transform: translateY(100px) rotate(720deg) scale(0.5);
+      }
+    }
+
     .team-name {
       font-size: 1rem;
       font-weight: 500;
@@ -361,29 +406,43 @@
       const isSelected = (id) => votedFor === id || selectedTeam === id;
       const showResults = !votingOpen; // Only show results when voting is closed
 
-      // Find winner(s) when showing results
+      // Find winner when showing results
       const maxVotes = showResults ? Math.max(...teams.map(t => t.votes)) : 0;
       const hasVotes = maxVotes > 0;
+      const winnersCount = hasVotes ? teams.filter(t => t.votes === maxVotes).length : 0;
+      const isTie = winnersCount > 1; // Ничья если несколько команд с max голосами
 
-      container.innerHTML = teams.map(team => {
-        const isWinner = showResults && hasVotes && team.votes === maxVotes;
-        const isLoser = showResults && hasVotes && team.votes !== maxVotes;
+      // Sort teams: winner first, then by votes descending
+      const sortedTeams = showResults
+        ? [...teams].sort((a, b) => b.votes - a.votes)
+        : teams;
+
+      container.innerHTML = sortedTeams.map((team, index) => {
+        const isWinner = showResults && hasVotes && !isTie && team.votes === maxVotes;
+        const isLoser = showResults && hasVotes && !isTie && team.votes !== maxVotes;
+        const isTied = showResults && hasVotes && isTie && team.votes === maxVotes;
 
         // Only disable during active voting if already voted, not when results shown
         const shouldDisable = votingOpen && votedFor !== null;
 
+        // Trophy for places when showing results
+        const place = showResults && hasVotes ? index + 1 : 0;
+        const trophy = isTie ? '' : (place === 1 ? '🥇' : place === 2 ? '🥈' : place === 3 ? '🥉' : '');
+
         return `
           <button
-            class="team-btn ${isSelected(team.id) ? 'selected' : ''} ${isWinner ? 'winner' : ''} ${isLoser ? 'loser' : ''}"
-            style="border-color: ${team.color}; ${isSelected(team.id) || isWinner ? `background: ${team.color}` : ''}"
+            class="team-btn ${isSelected(team.id) ? 'selected' : ''} ${isWinner ? 'winner' : ''} ${isLoser ? 'loser' : ''} ${isTied ? 'tied' : ''}"
+            style="border-color: ${team.color}; ${isSelected(team.id) || isWinner || isTied ? `background: ${team.color}` : ''}"
             data-id="${team.id}"
             data-color="${team.color}"
             ${shouldDisable ? 'disabled' : ''}
             onclick="selectTeam(${team.id})"
           >
+            ${trophy ? `<span class="trophy">${trophy}</span>` : ''}
             <span class="team-name">${team.name}</span>
             <span class="vote-count ${showResults ? 'visible' : ''}">${team.votes}</span>
             ${isWinner ? '<span class="winner-badge">Победитель</span>' : ''}
+            ${isTied ? '<span class="tie-badge">Ничья</span>' : ''}
           </button>
         `;
       }).join('');
@@ -405,6 +464,24 @@
 
       // Update confirm button
       updateConfirmButton();
+    }
+
+    // Mini confetti burst
+    function miniConfetti() {
+      const colors = ['#e53935', '#1e88e5', '#43a047', '#fb8c00', '#8e24aa', '#fdd835'];
+      const count = 30;
+
+      for (let i = 0; i < count; i++) {
+        const confetti = document.createElement('div');
+        confetti.className = 'confetti';
+        confetti.style.left = Math.random() * 100 + 'vw';
+        confetti.style.top = Math.random() * 40 + 'vh';
+        confetti.style.background = colors[Math.floor(Math.random() * colors.length)];
+        confetti.style.animationDelay = Math.random() * 0.5 + 's';
+        document.body.appendChild(confetti);
+
+        setTimeout(() => confetti.remove(), 2500);
+      }
     }
 
     function updateConfirmButton() {
@@ -529,6 +606,7 @@
     });
 
     socket.on('voting-status', (data) => {
+      const wasOpen = votingOpen;
       votingOpen = data.votingOpen;
       // When voting closes, server sends results
       if (data.teams) {
@@ -539,6 +617,11 @@
       }
       renderTeams();
       updateStatus();
+
+      // Mini confetti when voting closes
+      if (wasOpen && !votingOpen) {
+        miniConfetti();
+      }
     });
 
     socket.on('round-name-updated', (data) => {
