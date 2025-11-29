@@ -976,7 +976,12 @@
     });
 
     socket.on('round-name-updated', (data) => {
-      document.getElementById('input-round-name').value = data.roundName || '';
+      // Update round name in the list
+      const round = roundsList.find(r => r.id === currentRound);
+      if (round) {
+        round.name = data.roundName || '';
+        renderRoundsList();
+      }
     });
 
     socket.on('teams-updated', (data) => {
