@@ -400,37 +400,65 @@
       color: #1a1a1a;
     }
 
-    /* Joke mode cooldown button */
-    .cooldown-btn {
+    /* Joke mode cooldown overlay */
+    .joke-overlay {
       position: fixed;
-      bottom: 20px;
-      left: 20px;
-      right: 20px;
-      padding: 18px;
-      font-size: 1.2rem;
-      font-weight: 600;
-      border: 3px solid #e0e0e0;
-      border-radius: 12px;
-      background: #e0e0e0;
-      color: #999;
-      text-align: center;
-      z-index: 100;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(67, 160, 71, 0.95);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s;
     }
 
-    .cooldown-btn.hidden {
-      display: none;
+    .joke-overlay.visible {
+      opacity: 1;
+      pointer-events: auto;
     }
 
-    .cooldown-btn .timer {
-      display: inline-block;
-      width: 24px;
-      height: 24px;
-      line-height: 24px;
-      background: #999;
+    .joke-overlay .checkmark {
+      font-size: 4rem;
+      margin-bottom: 16px;
+      animation: pop-in 0.3s ease-out;
+    }
+
+    .joke-overlay .message {
+      font-size: 1.5rem;
       color: #fff;
+      font-weight: 600;
+      margin-bottom: 24px;
+    }
+
+    .joke-overlay .countdown {
+      font-size: 3rem;
+      color: #fff;
+      font-weight: 700;
+      width: 80px;
+      height: 80px;
+      border: 4px solid rgba(255,255,255,0.5);
       border-radius: 50%;
-      font-size: 0.9rem;
-      margin-left: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .joke-overlay .hint {
+      margin-top: 24px;
+      font-size: 1rem;
+      color: rgba(255,255,255,0.8);
+    }
+
+    @keyframes pop-in {
+      0% { transform: scale(0); }
+      50% { transform: scale(1.2); }
+      100% { transform: scale(1); }
     }
 
     .team-btn.winner {
@@ -479,8 +507,11 @@
     </button>
   </div>
 
-  <div class="cooldown-btn hidden" id="cooldown-btn">
-    Подождите <span class="timer" id="cooldown-timer">3</span>
+  <div class="joke-overlay" id="joke-overlay">
+    <div class="checkmark">✓</div>
+    <div class="message">Голос принят!</div>
+    <div class="countdown" id="joke-countdown">3</div>
+    <div class="hint">Готовы принять новый голос</div>
   </div>
 
   <div class="total-voters" id="total-voters"></div>
@@ -791,27 +822,24 @@
     function startCooldown() {
       jokeCooldown = true;
       cooldownSeconds = 3;
-      updateCooldownUI();
-      renderTeams(); // Disable buttons during cooldown
+
+      // Show overlay
+      const overlay = document.getElementById('joke-overlay');
+      const countdownEl = document.getElementById('joke-countdown');
+      overlay.classList.add('visible');
+      countdownEl.textContent = cooldownSeconds;
 
       cooldownTimer = setInterval(() => {
         cooldownSeconds--;
         if (cooldownSeconds <= 0) {
           clearInterval(cooldownTimer);
           jokeCooldown = false;
-          document.getElementById('cooldown-btn').classList.add('hidden');
+          overlay.classList.remove('visible');
           renderTeams(); // Re-enable buttons after cooldown
         } else {
-          updateCooldownUI();
+          countdownEl.textContent = cooldownSeconds;
         }
       }, 1000);
-    }
-
-    function updateCooldownUI() {
-      const cooldownBtn = document.getElementById('cooldown-btn');
-      const timerEl = document.getElementById('cooldown-timer');
-      cooldownBtn.classList.remove('hidden');
-      timerEl.textContent = cooldownSeconds;
     }
 
     function confirmVote() {
@@ -979,7 +1007,7 @@
         clearInterval(cooldownTimer);
         cooldownTimer = null;
       }
-      document.getElementById('cooldown-btn').classList.add('hidden');
+      document.getElementById('joke-overlay').classList.remove('visible');
       try {
         localStorage.removeItem('current_vote');
       } catch (e) {}
