@@ -22,7 +22,9 @@ let gameState = {
     { id: 1, name: 'Команда 2', votes: 0, color: TEAM_COLORS[1] }
   ],
   votingOpen: true,
-  voters: new Map() // Map socket.id -> teamId
+  // Multiple ways to track voters to prevent cheating
+  votersByFingerprint: new Map(), // fingerprint -> { visitorId, visitorKey, teamId }
+  votersBySocket: new Map()       // socket.id -> teamId (backup)
 };
 
 // Admin password (change this!)
@@ -41,24 +43,43 @@ app.get('/admin', (req, res) => {
 io.on('connection', (socket) => {
   console.log('User connected:', socket.id);
 
-  // Send current state to new user
-  socket.emit('state', {
-    round: gameState.round,
-    roundName: gameState.roundName,
-    teams: gameState.teams,
-    votingOpen: gameState.votingOpen,
-    votedFor: gameState.voters.get(socket.id) ?? null
+  // Store fingerprint for this socket
+  let socketFingerprint = null;
+
+  // Register fingerprint
+  socket.on('register-fingerprint', (data) => {
+    socketFingerprint = data.visitorId;
+
+    // Check if already voted
+    const existingVote = gameState.votersByFingerprint.get(data.visitorId);
+
+    socket.emit('state', {
+      round: gameState.round,
+      roundName: gameState.roundName,
+      teams: gameState.teams,
+      votingOpen: gameState.votingOpen,
+      votedFor: existingVote ? existingVote.teamId : null
+    });
   });
 
   // User votes
-  socket.on('vote', (teamId) => {
+  socket.on('vote', ({ teamId, visitorId, visitorKey }) => {
     if (!gameState.votingOpen) {
       socket.emit('error', 'Голосование закрыто');
       return;
     }
 
-    if (gameState.voters.has(socket.id)) {
+    // Check by fingerprint (primary)
+    if (visitorId && gameState.votersByFingerprint.has(visitorId)) {
       socket.emit('error', 'Вы уже голосовали');
+      socket.emit('voted', gameState.votersByFingerprint.get(visitorId).teamId);
+      return;
+    }
+
+    // Check by socket (backup)
+    if (gameState.votersBySocket.has(socket.id)) {
+      socket.emit('error', 'Вы уже голосовали');
+      socket.emit('voted', gameState.votersBySocket.get(socket.id));
       return;
     }
 
@@ -69,7 +90,16 @@ io.on('connection', (socket) => {
     }
 
     team.votes++;
-    gameState.voters.set(socket.id, teamId);
+
+    // Store vote by fingerprint
+    if (visitorId) {
+      gameState.votersByFingerprint.set(visitorId, { visitorId, visitorKey, teamId });
+    }
+
+    // Store by socket as backup
+    gameState.votersBySocket.set(socket.id, teamId);
+
+    console.log(`Vote: team=${teamId}, visitorId=${visitorId?.substring(0, 8)}..., socket=${socket.id}`);
 
     // Notify the voter
     socket.emit('voted', teamId);
@@ -77,7 +107,7 @@ io.on('connection', (socket) => {
     // Broadcast updated results to all
     io.emit('results', {
       teams: gameState.teams,
-      totalVoters: gameState.voters.size
+      totalVoters: gameState.votersByFingerprint.size || gameState.votersBySocket.size
     });
   });
 
@@ -91,7 +121,7 @@ io.on('connection', (socket) => {
         roundName: gameState.roundName,
         teams: gameState.teams,
         votingOpen: gameState.votingOpen,
-        totalVoters: gameState.voters.size
+        totalVoters: gameState.votersByFingerprint.size || gameState.votersBySocket.size
       });
     } else {
       socket.emit('admin-auth', false);
@@ -101,7 +131,8 @@ io.on('connection', (socket) => {
   socket.on('admin-reset', () => {
     if (socket.rooms.has('admins')) {
       gameState.teams.forEach(t => t.votes = 0);
-      gameState.voters.clear();
+      gameState.votersByFingerprint.clear();
+      gameState.votersBySocket.clear();
       gameState.votingOpen = true;
 
       // Notify all users
@@ -119,7 +150,8 @@ io.on('connection', (socket) => {
       gameState.round++;
       gameState.roundName = '';
       gameState.teams.forEach(t => t.votes = 0);
-      gameState.voters.clear();
+      gameState.votersByFingerprint.clear();
+      gameState.votersBySocket.clear();
       gameState.votingOpen = true;
 
       io.emit('new-round', {

@@ -23,9 +23,28 @@
       color: #1a1a1a;
     }
 
+    .header {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+
+    .cta {
+      font-size: 2rem;
+      font-weight: 700;
+      margin-bottom: 16px;
+      color: #1a1a1a;
+    }
+
+    .cta.voted {
+      color: #43a047;
+    }
+
+    .cta.closed {
+      color: #999;
+    }
+
     .round-info {
-      font-size: 1.2rem;
-      margin-bottom: 12px;
+      font-size: 1rem;
       color: #666;
       text-transform: uppercase;
       letter-spacing: 2px;
@@ -33,11 +52,10 @@
     }
 
     .round-name {
-      font-size: 1.5rem;
-      margin-bottom: 40px;
+      font-size: 1.2rem;
+      margin-top: 8px;
       color: #1a1a1a;
       font-weight: 600;
-      text-align: center;
     }
 
     .round-name:empty {
@@ -104,30 +122,53 @@
       text-align: center;
     }
 
-    .status {
-      margin-top: 40px;
-      padding: 12px 24px;
-      border: 1px solid #ddd;
-      border-radius: 8px;
+    .confirm-section {
+      margin-top: 32px;
       text-align: center;
-      font-size: 0.9rem;
-      color: #666;
     }
 
-    .status.voted {
-      background: #f5f5f5;
-      border-color: #1a1a1a;
-      color: #1a1a1a;
+    .confirm-btn {
+      padding: 16px 48px;
+      font-size: 1.2rem;
+      font-weight: 600;
+      border: 3px solid #43a047;
+      border-radius: 12px;
+      background: #43a047;
+      color: #fff;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-transform: uppercase;
+      letter-spacing: 1px;
     }
 
-    .status.closed {
-      background: #f5f5f5;
-      border-color: #999;
+    .confirm-btn:hover {
+      background: #388e3c;
+      border-color: #388e3c;
+      transform: scale(1.02);
+    }
+
+    .confirm-btn:active {
+      transform: scale(0.98);
+    }
+
+    .confirm-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .confirm-btn.hidden {
+      display: none;
+    }
+
+    .selected-team-name {
+      margin-bottom: 12px;
+      font-size: 1rem;
       color: #666;
     }
 
     .total-voters {
-      margin-top: 16px;
+      margin-top: 24px;
       color: #999;
       font-size: 0.85rem;
     }
@@ -146,37 +187,140 @@
   </style>
 </head>
 <body>
-  <div class="round-info">Раунд <span id="round">1</span></div>
-  <div class="round-name" id="round-name"></div>
+  <div class="header">
+    <div class="cta" id="cta">Голосуй за лучшую команду!</div>
+    <div class="round-info">Раунд <span id="round">1</span></div>
+    <div class="round-name" id="round-name"></div>
+  </div>
 
   <div class="voting-container" id="voting-container">
     <!-- Teams will be rendered here -->
   </div>
 
-  <div class="status" id="status">
-    Выберите команду
+  <div class="confirm-section" id="confirm-section">
+    <div class="selected-team-name" id="selected-team-name"></div>
+    <button class="confirm-btn hidden" id="confirm-btn" onclick="confirmVote()">
+      Подтвердить
+    </button>
   </div>
 
   <div class="total-voters" id="total-voters"></div>
 
+  <!-- FingerprintJS for device identification -->
+  <script src="https://cdn.jsdelivr.net/npm/@aspect-security/fingerprint-js@3.4.2/dist/fingerprint.min.js"></script>
   <script src="/socket.io/socket.io.js"></script>
   <script>
     const socket = io();
 
     let teams = [];
-    let votedFor = null;
+    let votedFor = null;        // Confirmed vote
+    let selectedTeam = null;    // Pre-selected (not confirmed yet)
     let votingOpen = true;
+    let visitorId = null;
+    let visitorKey = null;
+
+    // Generate device fingerprint
+    async function getFingerprint() {
+      try {
+        // Try localStorage first (persists across sessions)
+        const stored = localStorage.getItem('voter_fingerprint');
+        if (stored) {
+          const data = JSON.parse(stored);
+          visitorId = data.visitorId;
+          visitorKey = data.visitorKey;
+          return;
+        }
+      } catch (e) {}
+
+      // Generate new fingerprint based on device characteristics
+      const components = [
+        navigator.userAgent,
+        navigator.language,
+        screen.width + 'x' + screen.height,
+        screen.colorDepth,
+        new Date().getTimezoneOffset(),
+        navigator.hardwareConcurrency || 'unknown',
+        navigator.platform,
+        // Canvas fingerprint
+        await getCanvasFingerprint()
+      ];
+
+      // Create hash
+      const fingerprint = components.join('|');
+      visitorId = await hashString(fingerprint);
+      visitorKey = await hashString(fingerprint + Date.now() + Math.random());
+
+      // Store in localStorage
+      try {
+        localStorage.setItem('voter_fingerprint', JSON.stringify({ visitorId, visitorKey }));
+      } catch (e) {}
+    }
+
+    function getCanvasFingerprint() {
+      return new Promise(resolve => {
+        try {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          canvas.width = 200;
+          canvas.height = 50;
+
+          ctx.textBaseline = 'top';
+          ctx.font = '14px Arial';
+          ctx.fillStyle = '#f60';
+          ctx.fillRect(125, 1, 62, 20);
+          ctx.fillStyle = '#069';
+          ctx.fillText('Fingerprint', 2, 15);
+          ctx.fillStyle = 'rgba(102, 204, 0, 0.7)';
+          ctx.fillText('Fingerprint', 4, 17);
+
+          resolve(canvas.toDataURL());
+        } catch (e) {
+          resolve('canvas-not-supported');
+        }
+      });
+    }
+
+    async function hashString(str) {
+      const encoder = new TextEncoder();
+      const data = encoder.encode(str);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    // Initialize
+    async function init() {
+      await getFingerprint();
+
+      // Check if voted in localStorage
+      const localVote = localStorage.getItem('current_vote');
+      if (localVote) {
+        try {
+          const voteData = JSON.parse(localVote);
+          if (voteData.visitorId === visitorId) {
+            votedFor = voteData.teamId;
+          }
+        } catch (e) {}
+      }
+
+      // Register with server
+      socket.emit('register-fingerprint', { visitorId, visitorKey });
+    }
+
+    init();
 
     function renderTeams() {
       const container = document.getElementById('voting-container');
+      const isSelected = (id) => votedFor === id || selectedTeam === id;
+
       container.innerHTML = teams.map(team => `
         <button
-          class="team-btn ${votedFor === team.id ? 'selected' : ''}"
-          style="border-color: ${team.color}; ${votedFor === team.id ? `background: ${team.color}` : ''}"
+          class="team-btn ${isSelected(team.id) ? 'selected' : ''}"
+          style="border-color: ${team.color}; ${isSelected(team.id) ? `background: ${team.color}` : ''}"
           data-id="${team.id}"
           data-color="${team.color}"
           ${votedFor !== null || !votingOpen ? 'disabled' : ''}
-          onclick="vote(${team.id})"
+          onclick="selectTeam(${team.id})"
         >
           <span class="team-name">${team.name}</span>
           <span class="vote-count">${team.votes}</span>
@@ -197,20 +341,56 @@
           }
         });
       });
+
+      // Update confirm button
+      updateConfirmButton();
+    }
+
+    function updateConfirmButton() {
+      const confirmBtn = document.getElementById('confirm-btn');
+      const selectedName = document.getElementById('selected-team-name');
+
+      if (votedFor !== null) {
+        // Already voted
+        confirmBtn.classList.add('hidden');
+        selectedName.textContent = '';
+      } else if (selectedTeam !== null && votingOpen) {
+        // Team selected, show confirm
+        const team = teams.find(t => t.id === selectedTeam);
+        if (team) {
+          selectedName.textContent = `Вы выбрали: ${team.name}`;
+          confirmBtn.classList.remove('hidden');
+        }
+      } else {
+        // Nothing selected
+        confirmBtn.classList.add('hidden');
+        selectedName.textContent = '';
+      }
+    }
+
+    function selectTeam(teamId) {
+      if (votedFor !== null || !votingOpen) return;
+      selectedTeam = teamId;
+      renderTeams();
+    }
+
+    function confirmVote() {
+      if (selectedTeam === null || votedFor !== null || !votingOpen) return;
+      socket.emit('vote', { teamId: selectedTeam, visitorId, visitorKey });
     }
 
     function updateStatus() {
-      const status = document.getElementById('status');
-      status.classList.remove('voted', 'closed');
+      const cta = document.getElementById('cta');
+      cta.classList.remove('voted', 'closed');
 
       if (!votingOpen) {
-        status.classList.add('closed');
-        status.textContent = 'Голосование закрыто';
+        cta.classList.add('closed');
+        cta.textContent = 'Голосование закрыто';
       } else if (votedFor !== null) {
-        status.classList.add('voted');
-        status.textContent = 'Голос принят';
+        cta.classList.add('voted');
+        cta.textContent = 'Спасибо за голос!';
       } else {
-        status.textContent = 'Выберите команду';
+        cta.textContent = 'Голосуй за лучшую команду!';
       }
     }
 
@@ -219,7 +399,16 @@
       document.getElementById('round-name').textContent = data.roundName || '';
       teams = data.teams;
       votingOpen = data.votingOpen;
-      votedFor = data.votedFor;
+
+      // Server says we voted - trust it
+      if (data.votedFor !== null) {
+        votedFor = data.votedFor;
+        // Update localStorage
+        try {
+          localStorage.setItem('current_vote', JSON.stringify({ visitorId, teamId: votedFor }));
+        } catch (e) {}
+      }
+
       renderTeams();
       updateStatus();
     });
@@ -232,6 +421,10 @@
 
     socket.on('voted', (teamId) => {
       votedFor = teamId;
+      // Store in localStorage
+      try {
+        localStorage.setItem('current_vote', JSON.stringify({ visitorId, teamId }));
+      } catch (e) {}
       renderTeams();
       updateStatus();
     });
@@ -243,6 +436,10 @@
       votedFor = null;
       votingOpen = data.votingOpen;
       document.getElementById('total-voters').textContent = '';
+      // Clear localStorage vote
+      try {
+        localStorage.removeItem('current_vote');
+      } catch (e) {}
       renderTeams();
       updateStatus();
     });
@@ -254,6 +451,10 @@
       votedFor = null;
       votingOpen = data.votingOpen;
       document.getElementById('total-voters').textContent = '';
+      // Clear localStorage vote
+      try {
+        localStorage.removeItem('current_vote');
+      } catch (e) {}
       renderTeams();
       updateStatus();
     });
@@ -274,12 +475,17 @@
     });
 
     socket.on('error', (msg) => {
-      alert(msg);
+      // Don't show alert for "already voted" - just update UI
+      if (msg.includes('уже голосовали')) {
+        updateStatus();
+      } else {
+        alert(msg);
+      }
     });
 
     function vote(teamId) {
       if (votedFor !== null || !votingOpen) return;
-      socket.emit('vote', teamId);
+      socket.emit('vote', { teamId, visitorId, visitorKey });
     }
   </script>
 </body>
