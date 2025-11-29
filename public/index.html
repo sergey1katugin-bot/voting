@@ -46,14 +46,18 @@
 
     .voting-container {
       display: flex;
-      gap: 24px;
+      flex-wrap: wrap;
+      gap: 16px;
       width: 100%;
-      max-width: 600px;
+      max-width: 800px;
+      justify-content: center;
     }
 
     .team-btn {
-      flex: 1;
-      padding: 50px 20px;
+      flex: 1 1 calc(50% - 16px);
+      min-width: 200px;
+      max-width: 300px;
+      padding: 40px 20px;
       border: 3px solid #1a1a1a;
       border-radius: 16px;
       font-size: 1.5rem;
@@ -68,22 +72,9 @@
       color: #1a1a1a;
     }
 
-    .team-btn.left {
-      border-color: #e53935;
-    }
-
-    .team-btn.right {
-      border-color: #1e88e5;
-    }
-
-    .team-btn.left:hover:not(:disabled) {
-      background: #e53935;
+    .team-btn:hover:not(:disabled) {
       color: #fff;
-    }
-
-    .team-btn.right:hover:not(:disabled) {
-      background: #1e88e5;
-      color: #fff;
+      transform: scale(1.02);
     }
 
     .team-btn:active:not(:disabled) {
@@ -95,18 +86,12 @@
       cursor: not-allowed;
     }
 
-    .team-btn.left.selected {
-      background: #e53935;
-      color: #fff;
-    }
-
-    .team-btn.right.selected {
-      background: #1e88e5;
+    .team-btn.selected {
       color: #fff;
     }
 
     .vote-count {
-      font-size: 3.5rem;
+      font-size: 3rem;
       font-weight: 700;
       line-height: 1;
     }
@@ -116,6 +101,7 @@
       font-weight: 500;
       text-transform: uppercase;
       letter-spacing: 1px;
+      text-align: center;
     }
 
     .status {
@@ -147,17 +133,14 @@
     }
 
     @media (max-width: 480px) {
-      .voting-container {
-        flex-direction: column;
-        gap: 16px;
-      }
-
       .team-btn {
-        padding: 40px 20px;
+        flex: 1 1 100%;
+        max-width: none;
+        padding: 30px 20px;
       }
 
       .vote-count {
-        font-size: 3rem;
+        font-size: 2.5rem;
       }
     }
   </style>
@@ -166,16 +149,8 @@
   <div class="round-info">Раунд <span id="round">1</span></div>
   <div class="round-name" id="round-name"></div>
 
-  <div class="voting-container">
-    <button class="team-btn left" id="btn-left" onclick="vote('left')">
-      <span class="team-name" id="name-left">Команда 1</span>
-      <span class="vote-count" id="votes-left">0</span>
-    </button>
-
-    <button class="team-btn right" id="btn-right" onclick="vote('right')">
-      <span class="team-name" id="name-right">Команда 2</span>
-      <span class="vote-count" id="votes-right">0</span>
-    </button>
+  <div class="voting-container" id="voting-container">
+    <!-- Teams will be rendered here -->
   </div>
 
   <div class="status" id="status">
@@ -188,104 +163,123 @@
   <script>
     const socket = io();
 
-    let hasVoted = false;
-    let votingOpen = true;
+    let teams = [];
     let votedFor = null;
+    let votingOpen = true;
+
+    function renderTeams() {
+      const container = document.getElementById('voting-container');
+      container.innerHTML = teams.map(team => `
+        <button
+          class="team-btn ${votedFor === team.id ? 'selected' : ''}"
+          style="border-color: ${team.color}; ${votedFor === team.id ? `background: ${team.color}` : ''}"
+          data-id="${team.id}"
+          data-color="${team.color}"
+          ${votedFor !== null || !votingOpen ? 'disabled' : ''}
+          onclick="vote(${team.id})"
+        >
+          <span class="team-name">${team.name}</span>
+          <span class="vote-count">${team.votes}</span>
+        </button>
+      `).join('');
+
+      // Add hover effects
+      container.querySelectorAll('.team-btn:not(:disabled)').forEach(btn => {
+        const color = btn.dataset.color;
+        btn.addEventListener('mouseenter', () => {
+          if (!btn.classList.contains('selected')) {
+            btn.style.background = color;
+          }
+        });
+        btn.addEventListener('mouseleave', () => {
+          if (!btn.classList.contains('selected')) {
+            btn.style.background = '#fff';
+          }
+        });
+      });
+    }
+
+    function updateStatus() {
+      const status = document.getElementById('status');
+      status.classList.remove('voted', 'closed');
+
+      if (!votingOpen) {
+        status.classList.add('closed');
+        status.textContent = 'Голосование закрыто';
+      } else if (votedFor !== null) {
+        status.classList.add('voted');
+        status.textContent = 'Голос принят';
+      } else {
+        status.textContent = 'Выберите команду';
+      }
+    }
 
     socket.on('state', (data) => {
       document.getElementById('round').textContent = data.round;
       document.getElementById('round-name').textContent = data.roundName || '';
-      document.getElementById('name-left').textContent = data.teamLeft.name;
-      document.getElementById('name-right').textContent = data.teamRight.name;
-      document.getElementById('votes-left').textContent = data.teamLeft.votes;
-      document.getElementById('votes-right').textContent = data.teamRight.votes;
+      teams = data.teams;
       votingOpen = data.votingOpen;
-      hasVoted = data.hasVoted;
-      updateUI();
+      votedFor = data.votedFor;
+      renderTeams();
+      updateStatus();
     });
 
     socket.on('results', (data) => {
-      document.getElementById('votes-left').textContent = data.teamLeft.votes;
-      document.getElementById('votes-right').textContent = data.teamRight.votes;
+      teams = data.teams;
       document.getElementById('total-voters').textContent = `${data.totalVoters} голосов`;
+      renderTeams();
     });
 
-    socket.on('voted', (team) => {
-      hasVoted = true;
-      votedFor = team;
-      updateUI();
+    socket.on('voted', (teamId) => {
+      votedFor = teamId;
+      renderTeams();
+      updateStatus();
     });
 
     socket.on('reset', (data) => {
       document.getElementById('round').textContent = data.round;
       document.getElementById('round-name').textContent = data.roundName || '';
-      document.getElementById('votes-left').textContent = data.teamLeft.votes;
-      document.getElementById('votes-right').textContent = data.teamRight.votes;
-      hasVoted = false;
+      teams = data.teams;
       votedFor = null;
       votingOpen = data.votingOpen;
       document.getElementById('total-voters').textContent = '';
-      updateUI();
+      renderTeams();
+      updateStatus();
     });
 
     socket.on('new-round', (data) => {
       document.getElementById('round').textContent = data.round;
       document.getElementById('round-name').textContent = data.roundName || '';
-      document.getElementById('votes-left').textContent = data.teamLeft.votes;
-      document.getElementById('votes-right').textContent = data.teamRight.votes;
-      hasVoted = false;
+      teams = data.teams;
       votedFor = null;
       votingOpen = data.votingOpen;
       document.getElementById('total-voters').textContent = '';
-      updateUI();
+      renderTeams();
+      updateStatus();
     });
 
     socket.on('voting-status', (data) => {
       votingOpen = data.votingOpen;
-      updateUI();
+      renderTeams();
+      updateStatus();
     });
 
-    socket.on('names-updated', (data) => {
-      document.getElementById('name-left').textContent = data.teamLeft.name;
-      document.getElementById('name-right').textContent = data.teamRight.name;
+    socket.on('round-name-updated', (data) => {
       document.getElementById('round-name').textContent = data.roundName || '';
+    });
+
+    socket.on('teams-updated', (data) => {
+      teams = data.teams;
+      renderTeams();
     });
 
     socket.on('error', (msg) => {
       alert(msg);
     });
 
-    function vote(team) {
-      if (hasVoted || !votingOpen) return;
-      socket.emit('vote', team);
-    }
-
-    function updateUI() {
-      const btnLeft = document.getElementById('btn-left');
-      const btnRight = document.getElementById('btn-right');
-      const status = document.getElementById('status');
-
-      btnLeft.disabled = hasVoted || !votingOpen;
-      btnRight.disabled = hasVoted || !votingOpen;
-
-      btnLeft.classList.remove('selected');
-      btnRight.classList.remove('selected');
-      status.classList.remove('voted', 'closed');
-
-      if (!votingOpen) {
-        status.classList.add('closed');
-        status.textContent = 'Голосование закрыто';
-      } else if (hasVoted) {
-        status.classList.add('voted');
-        status.textContent = 'Голос принят';
-        if (votedFor === 'left') {
-          btnLeft.classList.add('selected');
-        } else {
-          btnRight.classList.add('selected');
-        }
-      } else {
-        status.textContent = 'Выберите команду';
-      }
+    function vote(teamId) {
+      if (votedFor !== null || !votingOpen) return;
+      socket.emit('vote', teamId);
     }
   </script>
 </body>

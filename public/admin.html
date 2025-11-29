@@ -20,7 +20,7 @@
     }
 
     .container {
-      max-width: 700px;
+      max-width: 800px;
       margin: 0 auto;
     }
 
@@ -115,44 +115,38 @@
 
     .results {
       display: flex;
-      gap: 16px;
+      flex-wrap: wrap;
+      gap: 12px;
       margin-bottom: 24px;
     }
 
     .team-result {
-      flex: 1;
-      padding: 32px 24px;
+      flex: 1 1 calc(50% - 12px);
+      min-width: 150px;
+      padding: 24px 16px;
       border-radius: 12px;
       text-align: center;
       background: #fff;
       border: 3px solid #1a1a1a;
     }
 
-    .team-result.left {
-      border-color: #e53935;
-    }
-
-    .team-result.right {
-      border-color: #1e88e5;
-    }
-
     .team-result .name {
-      font-size: 0.9rem;
-      margin-bottom: 12px;
+      font-size: 0.85rem;
+      margin-bottom: 8px;
       text-transform: uppercase;
       letter-spacing: 1px;
       color: #666;
     }
 
     .team-result .votes {
-      font-size: 4rem;
+      font-size: 3rem;
       font-weight: 700;
       line-height: 1;
-      margin-bottom: 8px;
+      margin-bottom: 4px;
     }
 
     .team-result .percent {
-      font-size: 1.2rem;
+      font-size: 1rem;
       color: #999;
     }
 
@@ -223,6 +217,7 @@
       padding: 24px;
       border-radius: 12px;
       border: 1px solid #e0e0e0;
+      margin-bottom: 24px;
     }
 
     .settings h3 {
@@ -232,11 +227,6 @@
       text-transform: uppercase;
       letter-spacing: 1px;
       color: #666;
-    }
-
-    .settings .inputs {
-      display: flex;
-      gap: 12px;
     }
 
     .setting-row {
@@ -251,7 +241,7 @@
     }
 
     .settings input {
-      flex: 1;
+      width: 100%;
       padding: 12px 14px;
       border: 1px solid #ddd;
       border-radius: 8px;
@@ -282,6 +272,65 @@
       color: #fff;
     }
 
+    /* Teams management */
+    .teams-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .team-row {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .team-row input {
+      flex: 1;
+    }
+
+    .team-row .color-indicator {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .team-row .btn-remove {
+      padding: 8px 12px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      background: #fff;
+      color: #999;
+      cursor: pointer;
+      font-size: 0.85rem;
+      transition: all 0.2s;
+    }
+
+    .team-row .btn-remove:hover {
+      border-color: #e53935;
+      color: #e53935;
+    }
+
+    .btn-add-team {
+      width: 100%;
+      padding: 12px;
+      border: 2px dashed #ccc;
+      border-radius: 8px;
+      background: transparent;
+      color: #999;
+      cursor: pointer;
+      font-size: 0.9rem;
+      transition: all 0.2s;
+      margin-bottom: 16px;
+    }
+
+    .btn-add-team:hover {
+      border-color: #1a1a1a;
+      color: #1a1a1a;
+    }
+
     #login-error {
       color: #c00;
       margin-top: 12px;
@@ -294,16 +343,33 @@
         flex-direction: column;
       }
 
+      .team-result {
+        flex: 1 1 100%;
+      }
+
       .controls {
         grid-template-columns: 1fr;
       }
 
-      .settings .inputs {
-        flex-direction: column;
+      .team-result .votes {
+        font-size: 2.5rem;
       }
 
-      .team-result .votes {
-        font-size: 3rem;
+      .team-row {
+        flex-wrap: wrap;
+      }
+
+      .team-row input {
+        flex: 1 1 100%;
+        order: 2;
+      }
+
+      .team-row .color-indicator {
+        order: 1;
+      }
+
+      .team-row .btn-remove {
+        order: 1;
       }
     }
   </style>
@@ -330,17 +396,8 @@
         Голосование открыто
       </div>
 
-      <div class="results">
-        <div class="team-result left">
-          <div class="name" id="name-left">Команда 1</div>
-          <div class="votes" id="votes-left">0</div>
-          <div class="percent" id="percent-left">0%</div>
-        </div>
-        <div class="team-result right">
-          <div class="name" id="name-right">Команда 2</div>
-          <div class="votes" id="votes-right">0</div>
-          <div class="percent" id="percent-right">0%</div>
-        </div>
+      <div class="results" id="results-container">
+        <!-- Teams will be rendered here -->
       </div>
 
       <div class="total-voters">
@@ -363,16 +420,17 @@
         <h3>Настройки</h3>
         <div class="setting-row">
           <label>Название раунда</label>
-          <input type="text" id="input-round-name" placeholder="Например: Финал">
+          <input type="text" id="input-round-name" placeholder="Например: Финал" onchange="setRoundName()">
         </div>
-        <div class="setting-row">
-          <label>Команды</label>
-          <div class="inputs">
-            <input type="text" id="input-left" placeholder="Левая команда">
-            <input type="text" id="input-right" placeholder="Правая команда">
-          </div>
+      </div>
+
+      <div class="settings">
+        <h3>Команды</h3>
+        <div class="teams-list" id="teams-list">
+          <!-- Teams inputs will be rendered here -->
         </div>
-        <button onclick="setNames()">Применить</button>
+        <button class="btn-add-team" onclick="addTeam()">+ Добавить команду</button>
+        <button onclick="saveTeams()">Сохранить названия</button>
       </div>
     </div>
   </div>
@@ -381,6 +439,34 @@
   <script>
     const socket = io();
     let votingOpen = true;
+    let teams = [];
+
+    function renderResults() {
+      const container = document.getElementById('results-container');
+      const totalVotes = teams.reduce((sum, t) => sum + t.votes, 0);
+
+      container.innerHTML = teams.map(team => {
+        const percent = totalVotes > 0 ? Math.round((team.votes / totalVotes) * 100) : 0;
+        return `
+          <div class="team-result" style="border-color: ${team.color}">
+            <div class="name">${team.name}</div>
+            <div class="votes">${team.votes}</div>
+            <div class="percent">${percent}%</div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderTeamsList() {
+      const container = document.getElementById('teams-list');
+      container.innerHTML = teams.map(team => `
+        <div class="team-row" data-id="${team.id}">
+          <span class="color-indicator" style="background: ${team.color}"></span>
+          <input type="text" value="${team.name}" placeholder="Название команды" data-id="${team.id}">
+          <button class="btn-remove" onclick="removeTeam(${team.id})">Удалить</button>
+        </div>
+      `).join('');
+    }
 
     socket.on('admin-auth', (success) => {
       if (success) {
@@ -396,7 +482,9 @@
     });
 
     socket.on('results', (data) => {
-      updateDisplay(data);
+      teams = data.teams;
+      document.getElementById('total-voters').textContent = data.totalVoters;
+      renderResults();
     });
 
     socket.on('reset', (data) => {
@@ -412,12 +500,18 @@
       updateVotingStatus();
     });
 
-    socket.on('names-updated', (data) => {
-      document.getElementById('name-left').textContent = data.teamLeft.name;
-      document.getElementById('name-right').textContent = data.teamRight.name;
-      document.getElementById('input-left').value = data.teamLeft.name;
-      document.getElementById('input-right').value = data.teamRight.name;
+    socket.on('round-name-updated', (data) => {
       document.getElementById('input-round-name').value = data.roundName || '';
+    });
+
+    socket.on('teams-updated', (data) => {
+      teams = data.teams;
+      renderResults();
+      renderTeamsList();
+    });
+
+    socket.on('error', (msg) => {
+      alert(msg);
     });
 
     function login() {
@@ -434,27 +528,11 @@
         document.getElementById('input-round-name').value = data.roundName;
       }
 
-      const leftVotes = data.teamLeft ? data.teamLeft.votes : 0;
-      const rightVotes = data.teamRight ? data.teamRight.votes : 0;
-      const total = leftVotes + rightVotes;
-
-      document.getElementById('votes-left').textContent = leftVotes;
-      document.getElementById('votes-right').textContent = rightVotes;
-
-      if (data.teamLeft && data.teamLeft.name) {
-        document.getElementById('name-left').textContent = data.teamLeft.name;
-        document.getElementById('input-left').placeholder = data.teamLeft.name;
+      if (data.teams) {
+        teams = data.teams;
+        renderResults();
+        renderTeamsList();
       }
-      if (data.teamRight && data.teamRight.name) {
-        document.getElementById('name-right').textContent = data.teamRight.name;
-        document.getElementById('input-right').placeholder = data.teamRight.name;
-      }
-
-      const leftPercent = total > 0 ? Math.round((leftVotes / total) * 100) : 0;
-      const rightPercent = total > 0 ? Math.round((rightVotes / total) * 100) : 0;
-
-      document.getElementById('percent-left').textContent = leftPercent + '%';
-      document.getElementById('percent-right').textContent = rightPercent + '%';
 
       if (data.totalVoters !== undefined) {
         document.getElementById('total-voters').textContent = data.totalVoters;
@@ -497,11 +575,32 @@
       }
     }
 
-    function setNames() {
-      const leftName = document.getElementById('input-left').value;
-      const rightName = document.getElementById('input-right').value;
+    function setRoundName() {
       const roundName = document.getElementById('input-round-name').value;
-      socket.emit('admin-set-names', { leftName, rightName, roundName });
+      socket.emit('admin-set-round-name', roundName);
+    }
+
+    function addTeam() {
+      socket.emit('admin-add-team');
+    }
+
+    function removeTeam(teamId) {
+      if (teams.length <= 2) {
+        alert('Минимум 2 команды');
+        return;
+      }
+      if (confirm('Удалить эту команду?')) {
+        socket.emit('admin-remove-team', teamId);
+      }
+    }
+
+    function saveTeams() {
+      const inputs = document.querySelectorAll('#teams-list input');
+      inputs.forEach(input => {
+        const id = parseInt(input.dataset.id);
+        const name = input.value;
+        socket.emit('admin-update-team', { id, name });
+      });
     }
   </script>
 </body>
