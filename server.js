@@ -55,6 +55,13 @@ function broadcastAdminStats() {
     connectedUsers,
     votePercent
   });
+
+  // Also broadcast to all users for progress bar
+  io.emit('vote-stats', {
+    totalVoters,
+    connectedUsers,
+    votePercent
+  });
 }
 
 // Socket.IO

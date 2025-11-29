@@ -225,6 +225,59 @@
       color: #e53935;
     }
 
+    /* Winner/Loser styles for admin */
+    .team-result.winner {
+      transform: scale(1.05);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+      border-width: 4px;
+      animation: admin-winner-pulse 1.5s ease-in-out infinite;
+    }
+
+    @keyframes admin-winner-pulse {
+      0%, 100% { box-shadow: 0 8px 32px rgba(0,0,0,0.15); }
+      50% { box-shadow: 0 12px 48px rgba(0,0,0,0.25); }
+    }
+
+    .team-result.loser {
+      opacity: 0.5;
+      transform: scale(0.95);
+    }
+
+    .team-result.tied {
+      border-width: 4px;
+    }
+
+    .winner-badge {
+      display: inline-block;
+      font-size: 0.75rem;
+      background: #43a047;
+      color: #fff;
+      padding: 6px 14px;
+      border-radius: 20px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-weight: 600;
+      margin-top: 12px;
+    }
+
+    .tie-badge {
+      display: inline-block;
+      font-size: 0.75rem;
+      background: #fb8c00;
+      color: #fff;
+      padding: 6px 14px;
+      border-radius: 20px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-weight: 600;
+      margin-top: 12px;
+    }
+
+    .trophy {
+      font-size: 1.5rem;
+      margin-bottom: 8px;
+    }
+
     .stats-bar {
       display: flex;
       justify-content: center;
@@ -501,16 +554,45 @@
       const container = document.getElementById('results-container');
       const totalVotes = teams.reduce((sum, t) => sum + t.votes, 0);
 
-      const teamCards = teams.map(team => {
+      // Determine winner/loser when voting is closed
+      const maxVotes = Math.max(...teams.map(t => t.votes));
+      const hasVotes = maxVotes > 0;
+      const winnersCount = hasVotes ? teams.filter(t => t.votes === maxVotes).length : 0;
+      const isTie = winnersCount > 1;
+      const showWinner = !votingOpen && hasVotes;
+
+      // Sort teams by votes when voting closed
+      const sortedTeams = !votingOpen
+        ? [...teams].sort((a, b) => b.votes - a.votes)
+        : teams;
+
+      const teamCards = sortedTeams.map((team, index) => {
         const percent = totalVotes > 0 ? Math.round((team.votes / totalVotes) * 100) : 0;
+
+        const isWinner = showWinner && !isTie && team.votes === maxVotes;
+        const isLoser = showWinner && !isTie && team.votes !== maxVotes;
+        const isTied = showWinner && isTie && team.votes === maxVotes;
+
+        // Trophy for places when showing results
+        const place = showWinner ? index + 1 : 0;
+        const trophy = isTie ? '' : (place === 1 ? '🥇' : place === 2 ? '🥈' : place === 3 ? '🥉' : '');
+
+        const classes = ['team-result'];
+        if (isWinner) classes.push('winner');
+        if (isLoser) classes.push('loser');
+        if (isTied) classes.push('tied');
+
         return `
-          <div class="team-result" style="border-color: ${team.color}">
+          <div class="${classes.join(' ')}" style="border-color: ${team.color}">
+            ${trophy ? `<div class="trophy">${trophy}</div>` : ''}
             <input class="name-input" type="text" value="${team.name}"
               data-id="${team.id}"
               onchange="updateTeamName(${team.id}, this.value)"
               placeholder="Название команды">
             <div class="votes">${team.votes}</div>
             <div class="percent">${percent}%</div>
+            ${isWinner ? '<div class="winner-badge">Победитель</div>' : ''}
+            ${isTied ? '<div class="tie-badge">Ничья</div>' : ''}
             ${teams.length > 2 ? `<button class="btn-remove-team" onclick="removeTeam(${team.id})">Удалить</button>` : ''}
           </div>
         `;

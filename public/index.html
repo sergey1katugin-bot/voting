@@ -283,6 +283,20 @@
       display: none;
     }
 
+    .selected-info {
+      margin-bottom: 12px;
+      font-size: 1rem;
+      color: #666;
+    }
+
+    .selected-info .team-name {
+      font-weight: 600;
+      color: #1a1a1a;
+    }
+
+    .selected-info.hidden {
+      display: none;
+    }
 
     .total-voters {
       margin-top: 24px;
@@ -293,6 +307,44 @@
 
     .total-voters.visible {
       display: block;
+    }
+
+    /* Vote progress bar */
+    .vote-progress {
+      width: 100%;
+      max-width: 400px;
+      margin-top: 32px;
+      text-align: center;
+    }
+
+    .vote-progress.hidden {
+      display: none;
+    }
+
+    .progress-bar {
+      width: 100%;
+      height: 8px;
+      background: #e0e0e0;
+      border-radius: 4px;
+      overflow: hidden;
+      margin-bottom: 8px;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: #43a047;
+      border-radius: 4px;
+      transition: width 0.3s ease;
+    }
+
+    .progress-text {
+      font-size: 0.85rem;
+      color: #666;
+    }
+
+    .progress-text span {
+      font-weight: 600;
+      color: #1a1a1a;
     }
 
     .team-btn.winner {
@@ -329,12 +381,20 @@
   </div>
 
   <div class="confirm-section" id="confirm-section">
+    <div class="selected-info hidden" id="selected-info"></div>
     <button class="confirm-btn hidden" id="confirm-btn" onclick="confirmVote()">
       Подтвердить
     </button>
   </div>
 
   <div class="total-voters" id="total-voters"></div>
+
+  <div class="vote-progress hidden" id="vote-progress">
+    <div class="progress-bar">
+      <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
+    </div>
+    <div class="progress-text">Проголосовало <span id="voted-count">0</span> из <span id="total-count">0</span></div>
+  </div>
 
   <script src="/socket.io/socket.io.js"></script>
   <script>
@@ -565,16 +625,24 @@
 
     function updateConfirmButton() {
       const confirmBtn = document.getElementById('confirm-btn');
+      const selectedInfo = document.getElementById('selected-info');
 
       if (votedFor !== null) {
         // Already voted
         confirmBtn.classList.add('hidden');
+        selectedInfo.classList.add('hidden');
       } else if (selectedTeam !== null && votingOpen) {
         // Team selected, show confirm
+        const team = teams.find(t => t.id === selectedTeam);
+        if (team) {
+          selectedInfo.innerHTML = `Вы выбрали: <span class="team-name">${team.name}</span>`;
+          selectedInfo.classList.remove('hidden');
+        }
         confirmBtn.classList.remove('hidden');
       } else {
         // Nothing selected
         confirmBtn.classList.add('hidden');
+        selectedInfo.classList.add('hidden');
       }
     }
 
@@ -717,6 +785,11 @@
       renderTeams();
       updateStatus();
 
+      // Hide progress bar when voting closes
+      if (!votingOpen) {
+        document.getElementById('vote-progress').classList.add('hidden');
+      }
+
       // Mini confetti when voting closes
       if (wasOpen && !votingOpen) {
         miniConfetti();
@@ -740,6 +813,28 @@
         alert(msg);
       }
     });
+
+    // Vote progress stats
+    socket.on('vote-stats', (data) => {
+      updateVoteProgress(data.totalVoters, data.connectedUsers, data.votePercent);
+    });
+
+    function updateVoteProgress(totalVoters, connectedUsers, votePercent) {
+      const progressEl = document.getElementById('vote-progress');
+      const fillEl = document.getElementById('progress-fill');
+      const votedCountEl = document.getElementById('voted-count');
+      const totalCountEl = document.getElementById('total-count');
+
+      // Show progress bar only during active voting
+      if (votingOpen && connectedUsers > 0) {
+        progressEl.classList.remove('hidden');
+        fillEl.style.width = votePercent + '%';
+        votedCountEl.textContent = totalVoters;
+        totalCountEl.textContent = connectedUsers;
+      } else {
+        progressEl.classList.add('hidden');
+      }
+    }
 
     function vote(teamId) {
       if (votedFor !== null || !votingOpen) return;
